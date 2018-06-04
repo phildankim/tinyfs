@@ -73,22 +73,25 @@ int openDisk(char *filename, int nBytes){
 
 	if (nBytes > 0) {	
 		if (diskNum == 0) {
-			int fd = open(filename, O_RDWR);
-			if (fd == -1) {
+			FILE *fd;
+			if ((fd = fopen(filename, "r+")) == NULL) {
 				return -1; // file open failure
 			}
-			disk *newDisk;
 			createDisk(head, filename, nBytes);
-			insertDisk(newDisk);
-			head->fd = fd;
+			head->fd = fileno(fd);
 			return head->diskNum;
 		} 
 		else {
 			ptr = findDisk(filename);
 			if (ptr == NULL) { /*file does not exist yet*/
+				FILE *fd;
+				if ((fd = fopen(filename, "r+")) == NULL) {
+					return -1; // file open failure
+				}
 				disk *newDisk;
 				createDisk(newDisk, filename, nBytes);
 				insertDisk(newDisk);
+				newDisk->fd = fileno(fd);
 				return newDisk->diskNum;
 			} 
 			else { /*file already exists, resize*/
@@ -109,7 +112,9 @@ bNum=1 is BLOCKSIZE bytes into the disk, bNum=n is n*BLOCKSIZE bytes into the di
 On success, it returns 0. -1 or smaller is returned if disk is not available (hasn’t been opened) or any other failures. 
 You must define your own error code system. */
 int readBlock(int disk, int bNum, void *block) {
-	disk *ptr = head;
+	struct disk *ptr;
+	ptr = head;
+
 	if (bNum < BLOCKSIZE) {
 		return -4; // invalid block number
 	}
@@ -138,9 +143,13 @@ Just as in readBlock(), writeBlock() must translate the logical block bNum to th
 On success, it returns 0. -1 or smaller is returned if disk is not available (i.e. hasn’t been opened) or any other failures. 
 You must define your own error code system. */
 int writeBlock(int disk, int bNum, void *block){
-	disk *ptr;
-
+	struct disk *ptr;
 	ptr = head;
+
+	if (bNum < BLOCKSIZE) {
+		return -4; // invalid block number
+	}
+
 	while ((ptr->diskNum != disk) && (ptr->next != NULL)) {
 		ptr = ptr->next;
 	}
@@ -163,8 +172,8 @@ int writeBlock(int disk, int bNum, void *block){
 i.e. any subsequent reads or writes to a closed disk should return an error. 
 Closing a disk should also close the underlying file, committing any writes being buffered by the real OS. */
 void closeDisk(int disk){
-	disk *ptr;
-	disk *previous;
+	struct disk *ptr;
+	struct disk *previous;
 	if (head->diskNum == disk) {
 
 	} 
@@ -185,5 +194,9 @@ void closeDisk(int disk){
 	}
 }
 
+int main() {
+	int res = openDisk("a.txt", 256);
+	printf("%d\n",res);
+}
 
 
