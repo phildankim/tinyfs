@@ -8,7 +8,8 @@
 
 typedef struct disk {
 	char *filename;
-	FILE *fd;
+	FILE *filestream;
+	int fd;
 	int diskNum;
 	struct disk *next;
 	int fsize;

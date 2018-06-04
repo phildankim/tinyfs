@@ -1,6 +1,9 @@
 #include "libDisk.h"
 #include <string.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 int diskNum = 0;
 disk *head;
@@ -15,7 +18,6 @@ disk *findDisk(char *filename) { /* may or may not return the correct disk, must
 }
 
 void createDisk(disk *newDisk, char *filename, int nBytes) {
-	newDisk = malloc(sizeof(disk));
 	newDisk->diskNum = diskNum;
 	newDisk->next = NULL;
 	newDisk->filename = filename;
@@ -62,6 +64,7 @@ int openDisk(char *filename, int nBytes){
 		// and a corresponding disk may or may not exist
 		if ((ptr = findDisk(filename)) == NULL) { 
 			disk *newDisk;
+			newDisk = malloc(sizeof(disk));
 			createDisk(newDisk, filename, nBytes);
 			insertDisk(newDisk);
 			return newDisk->diskNum;
@@ -77,7 +80,9 @@ int openDisk(char *filename, int nBytes){
 			if ((fd = fopen(filename, "r+")) == NULL) {
 				return -1; // file open failure
 			}
+			head = malloc(sizeof(disk));
 			createDisk(head, filename, nBytes);
+			head->filestream = fd;
 			head->fd = fileno(fd);
 			return head->diskNum;
 		} 
@@ -89,8 +94,10 @@ int openDisk(char *filename, int nBytes){
 					return -1; // file open failure
 				}
 				disk *newDisk;
+				newDisk = malloc(sizeof(disk));
 				createDisk(newDisk, filename, nBytes);
 				insertDisk(newDisk);
+				newDisk->filestream = fd;
 				newDisk->fd = fileno(fd);
 				return newDisk->diskNum;
 			} 
@@ -101,6 +108,7 @@ int openDisk(char *filename, int nBytes){
 			}
 		}
 	}
+	return -1;
 }
 
 
@@ -115,10 +123,6 @@ int readBlock(int disk, int bNum, void *block) {
 	struct disk *ptr;
 	ptr = head;
 
-	if (bNum < BLOCKSIZE) {
-		return -4; // invalid block number
-	}
-
 	while ((ptr->diskNum != disk) && (ptr->next != NULL)) {
 		ptr = ptr->next;
 	}
@@ -127,11 +131,11 @@ int readBlock(int disk, int bNum, void *block) {
 	} 
 
 	//disk found
-	if (fseek(ptr->fd, bNum*BLOCKSIZE, SEEK_SET) != 0) { /*seek to the offset point into the disk */
-		return -1; /*error */
+	if (fseek(ptr->filestream, bNum*BLOCKSIZE, SEEK_SET) != 0) { /*seek to the offset point into the disk */
+		return -2; /*error */
 	}
-	if (fread(block, 1, BLOCKSIZE, ptr->fd) != BLOCKSIZE) {
-		return -1; /*error */
+	if (fread(block, 1, BLOCKSIZE, ptr->filestream) != BLOCKSIZE) {
+		return -3; /*error */
 	}
 	return 0;
 }
@@ -146,10 +150,6 @@ int writeBlock(int disk, int bNum, void *block){
 	struct disk *ptr;
 	ptr = head;
 
-	if (bNum < BLOCKSIZE) {
-		return -4; // invalid block number
-	}
-
 	while ((ptr->diskNum != disk) && (ptr->next != NULL)) {
 		ptr = ptr->next;
 	}
@@ -157,10 +157,10 @@ int writeBlock(int disk, int bNum, void *block){
 		return -1; /*disk not available */
 	} 
 	else { /*disk found */
-		if (fseek(ptr->fd, bNum*BLOCKSIZE, SEEK_SET) != 0) { /*seek to the offset point into the disk */
+		if (fseek(ptr->filestream, bNum*BLOCKSIZE, SEEK_SET) != 0) { /*seek to the offset point into the disk */
 			return -1; /*error */
 		}
-		if (fwrite(block, 1, BLOCKSIZE, ptr->fd) != 256) {
+		if (fwrite(block, 1, BLOCKSIZE, ptr->filestream) != 256) {
 			return -1; /*error */
 		}
 	}
@@ -188,15 +188,19 @@ void closeDisk(int disk){
 			 printf("error - disk not available");
 		} 
 		else { /*disk found */
-			fclose(ptr->fd);
+			fclose(ptr->filestream);
 			previous->next = ptr->next; /* "close" disk by removing it from the linked list */
 		}
 	}
 }
 
 int main() {
-	int res = openDisk("a.txt", 256);
-	printf("%d\n",res);
+	int dn = openDisk("test.txt", 256);
+	printf("disk num: %d\n",dn);
+
+	void *buf;
+	int res = readBlock(dn, 1, buf);
+	printf("success? %d\n", res);
 }
 
 
