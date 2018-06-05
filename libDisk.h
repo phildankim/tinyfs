@@ -6,32 +6,6 @@
 
 #define BLOCKSIZE 256
 
-typedef struct disk {
-	char *filename;
-	FILE *filestream;
-	int fd;
-	int diskNum;
-	struct disk *next;
-	int fsize;
-	int currBytes;
-} disk;
-
-typedef struct FileExtent {
-	int type;
-	int num;
-	void *next;
-} FileExtent;
-
-
-typedef struct inode {
-	char *filename;
-	int fileType; //0 for regular file, 1 for dir
-	struct FileExtent *data;
-	struct inode **dir_array;
-	int inodeNum;
-} inode;
-
-
 /* This functions opens a regular UNIX file and designates the first nBytes of it as space for the emulated disk. 
 nBytes should be a number that is evenly divisible by the block size. 
 If nBytes > 0 and there is already a file by the given filename, that disk is resized to nBytes, 
