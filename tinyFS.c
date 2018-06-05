@@ -1,15 +1,41 @@
 #include "libDisk.h"
+#include "tinyFS.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+superblock *sb = NULL;
 
+void initSuperBlock(int magicN) {
+	if (sb == NULL) {
+
+	}
+}
+
+void initFBList(int disk) {
+
+}
 
 /* Makes a blank TinyFS file system of size nBytes on the file specified by ‘filename’. 
 This function should use the emulated disk library to open the specified file, and upon success, format the file to be mountable. 
 This includes initializing all data to 0x00, setting magic numbers, initializing and writing the superblock and inodes, etc. 
 Must return a specified success/error code. */
-int tfs_mkfs(char *filename, int nBytes);
+int tfs_mkfs(char *filename, int nBytes) {
+	int disk = openDisk(filename, nBytes);
+	if (disk == -1) {
+		printf("error - invalid file\n");
+		return -1;
+	}
+	if (disk == -2) {
+		printf("error - invalid nBytes\n");
+		return -2;
+	}
+
+	//init nBytes of disk to 0x00
+	//initialize freeblocks list
+	//initialize superblock
+	return 0;
+}
 
 /* tfs_mount(char *filename) “mounts” a TinyFS file system located within ‘filename’. 
 tfs_unmount(void) “unmounts” the currently mounted file system. 
@@ -17,7 +43,10 @@ As part of the mount operation, tfs_mount should verify the file system is the c
 Only one file system may be mounted at a time. 
 Use tfs_unmount to cleanly unmount the currently mounted file system. 
 Must return a specified success/error code. */
-int tfs_mount(char *filename);
+int tfs_mount(char *filename) {
+	// this is just a matter of grabbing the fd correspondent to the filename
+	// and using that fd to read/write
+}
 int tfs_unmount(void);
 
 /* Opens a file for reading and writing on the currently mounted file system. 
