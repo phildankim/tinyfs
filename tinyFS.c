@@ -9,6 +9,7 @@ ResourceTableEntry *top = NULL;
 int mountedDisk = UNMOUNTED; // this is for mount/unmount, keeps track of which disk to operate on
 int numFreeBlocks = 40;
 
+/*
 int errorCheck(int errno) {
 	if (errno == -1) {
 		printf("error - invalid file\n");
@@ -19,7 +20,7 @@ int errorCheck(int errno) {
 		return -2;
 	}
 }
-
+*/
 /////////////////////////
 /// STRUCT OPERATIONS ///
 /////////////////////////
@@ -69,12 +70,19 @@ int searchRT(char *fname) {
 void initSB() {
 	if (sb == NULL) {
 		sb = calloc(1, BLOCKSIZE);
+		sb->blockType = SUPERBLOCK;
+		sb->magicN = MAGIC_N;
+		sb->nextFB = 1;
+		sb->rootNode = -1;
+		writeBlock(mountedDisk, 0, sb);
 	}
-	sb->blockType = SUPERBLOCK;
-	sb->magicN = MAGIC_N;
-	sb->nextFB = 1;
-	sb->rootNode = -1;
-	writeBlock(mountedDisk, 0, sb);
+}
+
+void updateSB(int bNum) {
+	freeblock *ptr;
+	readBlock(mountedDisk, bNum, ptr);
+	int next = ptr->nextBlockNum;
+	sb->nextFB = next;
 }
 
 void initFBList(int nBytes) {
@@ -96,7 +104,10 @@ int createIN(char *fname) { // returns inode blocknum, also incomplete
 	new->blockType = INODE;
 	new->magicN = MAGIC_N;
 	new->fname = fname;
-	// new->fileType = 0; this is not completely correct, unsure whether to use LL or Tree
+	new->fType = 0; // this is not completely correct, unsure whether to use LL or Tree, probably create macros for this value
+	new->fSize = 0;
+	new->data = -1; // FileExtent has not been created yet at this point
+	new->next = -1; 
 
 	// for now, we are implementing inodes in a linked list
 	if (sb->rootNode < 0) { // root inode has not yet been initialized
@@ -105,8 +116,25 @@ int createIN(char *fname) { // returns inode blocknum, also incomplete
 	}
 	else {
 		int nextFB = sb->nextFB; // 
+		new->blockNum = nextFB;
 	}
-	writeBlock(mountedDisk, 1, new);
+	updateSB(nextFB);
+	if (writeBlock(mountedDisk, new->blockNum, new) < 0) {
+		printf("in createIN - writeBlock failed -- exiting\n");
+		return -7;
+	}
+	numFreeBlocks -= 1;
+	insertIN(new->blockNum);
+	return new->blockNum;
+}
+
+void insertIN(uint8_t new) {
+	inode *ptr;
+	readBlock(mountedDisk, sb->rootNode, ptr);
+	while (ptr->next > 0) {
+		readBlock(mountedDisk, ptr->next, ptr);
+	}
+	ptr->next = new;
 }
 
 /////////////////////////
@@ -119,7 +147,14 @@ This includes initializing all data to 0x00, setting magic numbers, initializing
 Must return a specified success/error code. */
 int tfs_mkfs(char *filename, int nBytes) {
 	int disk = openDisk(filename, nBytes);
-	errorCheck(disk);
+	if (disk == -1) {
+		printf("error - invalid file\n");
+		return -1;
+	}
+	if (disk == -2) {
+		printf("error - invalid nBytes\n");
+		return -2;
+	}
 
 	mountedDisk = disk;
 
@@ -145,7 +180,14 @@ int tfs_mount(char *filename) {
 	}
 
 	int disk = openDisk(filename, 0);
-	errorCheck(disk);
+	if (disk == -1) {
+		printf("error - invalid file\n");
+		return -1;
+	}
+	if (disk == -2) {
+		printf("error - invalid nBytes\n");
+		return -2;
+	}
 	char buf[BLOCKSIZE];
 	readBlock(disk, 0, buf);
 
@@ -182,14 +224,12 @@ fileDescriptor tfs_openFile(char *name) {
 	int fd = searchRT(name); //check if file already in table
 	if (fd < 0) { // not exists
 		fd = createRTEntry(name);
-		createIN(name); // create inode
+		int inodeBlockNum = createIN(name); // create inode
 		return fd;
 	}
 	else { // exists
 		return fd;
 	}
-
-
 }
 
 /* Closes the file, de-allocates all system/disk resources, and removes table entry */
@@ -198,7 +238,12 @@ int tfs_closeFile(fileDescriptor FD);
 /* Writes buffer ‘buffer’ of size ‘size’, which represents an entire file’s content, to the file system. 
 Sets the file pointer to 0 (the start of file) when done. 
 Returns success/error codes. */
-int tfs_writeFile(fileDescriptor FD, char *buffer, int size);
+int tfs_writeFile(fileDescriptor FD, char *buffer, int size) {
+	// check if FD is open or not
+	// acquire data block (fileExtent) remaining size
+	// allocate correct number of FileExtent depending on how much space is needed ^^
+	// writeBlock(mountedDisk, ..., buffer);
+}
 
 /* deletes a file and marks its blocks as free on disk. */
 int tfs_deleteFile(fileDescriptor FD);

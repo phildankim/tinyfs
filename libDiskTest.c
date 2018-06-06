@@ -1,6 +1,7 @@
 #include "libDisk.h"
 
 int main() {
+   /*
    int d1 = openDisk("test.txt", BLOCKSIZE);
    printf("%d\n", d1);
    int d2 = openDisk("test1.txt", BLOCKSIZE);
@@ -18,8 +19,14 @@ int main() {
    int d4 = openDisk("empty", BLOCKSIZE);
    printf("%d\n", d4);
    writeBlock(d4, 0, buf2);
+   */
 
    //d4 = openDisk("empty", BLOCKSIZE);
+
+
+
+   // Testing
+
    
    return 0;
 }

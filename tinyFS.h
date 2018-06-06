@@ -37,7 +37,7 @@ typedef struct FileExtent {
 	uint8_t magicN;
 	uint8_t blockNum;
 	uint8_t next;
-	char emptyOffset[BLOCKSIZE - 3];
+	char emptyOffset[BLOCKSIZE - 4];
 } FileExtent;
 
 typedef struct inode {
@@ -45,11 +45,12 @@ typedef struct inode {
 	uint8_t magicN;
 	uint8_t blockNum;
 	uint8_t *fname[9];
-	uint8_t fileType; //0 for regular file, 1 for dir
-	uint8_t *data;
+	uint8_t fType; //0 for regular file, 1 for dir
+	uint8_t fSize;
+	uint8_t data;
 	uint8_t next; // linked list for now
 	//struct inode **dirNodes;
-	char emptyOffset[BLOCKSIZE - 15];
+	char emptyOffset[BLOCKSIZE - 16];
 } inode;
 
 typedef struct superblock {
@@ -57,7 +58,7 @@ typedef struct superblock {
 	uint8_t magicN;
 	uint8_t nextFB;
 	uint8_t rootNode;
-	char emptyOffset[BLOCKSIZE - 3];
+	char emptyOffset[BLOCKSIZE - 4];
 } superblock;
 
 typedef struct freeblock {
@@ -72,5 +73,5 @@ typedef struct ResourceTableEntry {
 	char fname[9];
 	fileDescriptor fd;
 	int inodeNum;
-	struct ResourceTableEntry next;
+	struct ResourceTableEntry *next;
 } ResourceTableEntry;
