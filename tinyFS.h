@@ -13,9 +13,11 @@ typedef int fileDescriptor;
 
 #define SUPERBLOCK 1
 #define INODE 2
-#define FILEEXTENT 3
-#define FREEBLOCK 4
+#define FILE_EXTENT 3
+#define FREE_BLOCK 4
 #define UNMOUNTED -1
+#define FNAME_LIMIT 8
+#define MAGIC_N 0x45
 
 void initSB();
 void initFBList(int nBytes);
@@ -30,23 +32,23 @@ int tfs_deleteFile(fileDescriptor FD);
 int tfs_readByte(fileDescriptor FD, char *buffer);
 int tfs_seek(fileDescriptor FD, int offset);
 
-
-
-
 typedef struct FileExtent {
 	uint8_t blockType;
 	uint8_t magicN;
-	void *next;
+	uint8_t blockNum;
+	uint8_t next;
 	char emptyOffset[BLOCKSIZE - 3];
 } FileExtent;
 
 typedef struct inode {
 	uint8_t blockType;
 	uint8_t magicN;
-	uint8_t *filename[9];
+	uint8_t blockNum;
+	uint8_t *fname[9];
 	uint8_t fileType; //0 for regular file, 1 for dir
-	struct FileExtent *data;
-	struct inode **dirNodes;
+	uint8_t *data;
+	uint8_t next; // linked list for now
+	//struct inode **dirNodes;
 	char emptyOffset[BLOCKSIZE - 15];
 } inode;
 
@@ -54,7 +56,7 @@ typedef struct superblock {
 	uint8_t blockType;
 	uint8_t magicN;
 	uint8_t nextFB;
-	inode *root;
+	uint8_t rootNode;
 	char emptyOffset[BLOCKSIZE - 3];
 } superblock;
 
@@ -65,3 +67,10 @@ typedef struct freeblock {
 	uint8_t nextBlockNum;
 	char emptyOffset[BLOCKSIZE - 4];
 } freeblock; 
+
+typedef struct ResourceTableEntry {
+	char fname[9];
+	fileDescriptor fd;
+	int inodeNum;
+	struct ResourceTableEntry next;
+} ResourceTableEntry;

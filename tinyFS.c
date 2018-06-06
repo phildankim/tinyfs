@@ -5,33 +5,9 @@
 #include <string.h>
 
 superblock *sb = NULL;
+ResourceTableEntry *top = NULL;
 int mountedDisk = UNMOUNTED; // this is for mount/unmount, keeps track of which disk to operate on
 int numFreeBlocks = 40;
-
-
-void initSB() {
-	if (sb == NULL) {
-		sb = calloc(1, BLOCKSIZE);
-	}
-	sb->blockType = SUPERBLOCK;
-	sb->magicN = 0x45;
-	sb->nextFB = 1;
-	writeBlock(mountedDisk, 0, sb);
-}
-
-void initFBList(int nBytes) {
-	int bNum = nBytes / BLOCKSIZE;
-	int i;
-	for (i = 0; i < bNum; i++) {
-		freeblock *newFB = calloc(bNum, BLOCKSIZE);
-		newFB->blockType = FREEBLOCK;
-		newFB->magicN = 0x45;
-		newFB->blockNum = i;
-		newFB->nextBlockNum = i + 1;
-		//printf("%d\n", newFB->blockNum);
-		writeBlock(mountedDisk, i, newFB);
-	}
-}
 
 int errorCheck(int errno) {
 	if (errno == -1) {
@@ -43,6 +19,99 @@ int errorCheck(int errno) {
 		return -2;
 	}
 }
+
+/////////////////////////
+/// STRUCT OPERATIONS ///
+/////////////////////////
+
+void initResourceTable(char *fname) {
+	if (top == NULL) {
+		top = malloc(sizeof(ResourceTableEntry));
+		top->fname = fname;
+		top->next = NULL;
+	}
+}
+
+int createRTEntry(char *fname) { // incomplete
+	ResourceTableEntry *new = malloc(sizeof(ResourceTableEntry));
+	int fd = open(fname, "r+");
+	new->fname = fname;
+	new->fd = fd;
+	new->next = NULL;
+	insertRTEntry(new);
+
+	return fd;
+}
+
+void insertRTEntry(ResourceTableEntry *new) {
+	ResourceTableEntry *ptr = top;
+	while (ptr->next != NULL) {
+		ptr = ptr->next;
+	}
+	ptr->next = new;
+}
+
+int searchRT(char *fname) {
+	initResourceTable(fname);
+	ResourceTableEntry *ptr = top;
+	while (strcmp(ptr->fname, fname) != 0 || ptr->next != NULL) {
+		ptr = ptr->next;
+	}
+	if (strcmp(ptr->fname, fname) == 0) {
+		return ptr->fd; // file already in resource table
+	}
+	else {
+		return -1; // file not in resource table
+	}
+
+}
+
+void initSB() {
+	if (sb == NULL) {
+		sb = calloc(1, BLOCKSIZE);
+	}
+	sb->blockType = SUPERBLOCK;
+	sb->magicN = MAGIC_N;
+	sb->nextFB = 1;
+	sb->rootNode = -1;
+	writeBlock(mountedDisk, 0, sb);
+}
+
+void initFBList(int nBytes) {
+	int bNum = nBytes / BLOCKSIZE;
+	int i;
+	for (i = 0; i < bNum; i++) {
+		freeblock *newFB = calloc(bNum, BLOCKSIZE);
+		newFB->blockType = FREE_BLOCK;
+		newFB->magicN = MAGIC_N;
+		newFB->blockNum = i;
+		newFB->nextBlockNum = i + 1;
+		//printf("%d\n", newFB->blockNum);
+		writeBlock(mountedDisk, i, newFB);
+	}
+}
+
+int createIN(char *fname) { // returns inode blocknum, also incomplete
+	inode *new = malloc(BLOCKSIZE);
+	new->blockType = INODE;
+	new->magicN = MAGIC_N;
+	new->fname = fname;
+	// new->fileType = 0; this is not completely correct, unsure whether to use LL or Tree
+
+	// for now, we are implementing inodes in a linked list
+	if (sb->rootNode < 0) { // root inode has not yet been initialized
+		new->blockNum = 1;
+		sb->rootNode = 1;
+	}
+	else {
+		int nextFB = sb->nextFB; // 
+	}
+	writeBlock(mountedDisk, 1, new);
+}
+
+/////////////////////////
+/// tinyFS OPERATIONS ///
+/////////////////////////
 
 /* Makes a blank TinyFS file system of size nBytes on the file specified by ‘filename’. 
 This function should use the emulated disk library to open the specified file, and upon success, format the file to be mountable. 
@@ -80,7 +149,7 @@ int tfs_mount(char *filename) {
 	char buf[BLOCKSIZE];
 	readBlock(disk, 0, buf);
 
-	if (buf[1] != 0x45) {
+	if (buf[1] != MAGIC_N) {
 		return -4; // not the magic number
 	}
 
@@ -99,7 +168,29 @@ int tfs_unmount(void) {
 /* Opens a file for reading and writing on the currently mounted file system. 
 Creates a dynamic resource table entry for the file, and returns a file descriptor (integer) 
 that can be used to reference this file while the filesystem is mounted. */
-fileDescriptor tfs_openFile(char *name);
+fileDescriptor tfs_openFile(char *name) {
+	if (mountedDisk != UNMOUNTED) {
+		printf("nothing mounted -- exiting\n");
+		return -5;
+	} 
+
+	if (sizeof(name) > FNAME_LIMIT) {
+		printf("file name too long -- exiting\n");
+		return -6;
+	}
+
+	int fd = searchRT(name); //check if file already in table
+	if (fd < 0) { // not exists
+		fd = createRTEntry(name);
+		createIN(name); // create inode
+		return fd;
+	}
+	else { // exists
+		return fd;
+	}
+
+
+}
 
 /* Closes the file, de-allocates all system/disk resources, and removes table entry */
 int tfs_closeFile(fileDescriptor FD);

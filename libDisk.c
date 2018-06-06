@@ -98,11 +98,6 @@ int createDisk(int fd) {
 
 	return newDisk;
 }
-/*
-fileDescriptor retrieveFD(int disk) {
-	return diskArray[disk];
-}
-*/
 
 /*
 int main() {
