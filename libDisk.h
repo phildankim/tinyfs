@@ -6,6 +6,8 @@
 
 #define BLOCKSIZE 256
 
+//fileDescriptor retrieveFD(int disk);
+
 /* This functions opens a regular UNIX file and designates the first nBytes of it as space for the emulated disk. 
 nBytes should be a number that is evenly divisible by the block size. 
 If nBytes > 0 and there is already a file by the given filename, that disk is resized to nBytes, 
