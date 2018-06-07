@@ -73,13 +73,14 @@ typedef struct freeblock {
 	char emptyOffset[BLOCKSIZE - 4];
 } freeblock; 
 
-typedef struct ResourceTableEntry {
+typedef struct ResourceTableEntry { /*index = fd*/
 	char fname[9];
 	fileDescriptor fd; // this is the blockNum of the root data block correspondent to the file
 	int inodeNum;
+	int opened; /* 0 if unopened, 1 if opened */
 } ResourceTableEntry;
 
-typedef struct OpenFileTable {
+/*typedef struct OpenFileTableEntry {
 	fileDescriptor fd;
 	char fname[9];
-} OpenFileTable;
+} OpenFileTableEntry;*/
