@@ -79,6 +79,13 @@ void initFBList(int nBytes) {
 	}
 }
 
+void printSB() {
+	printf("] Printing super block\n");
+	printf("Block type: %d\n", sb->blockType);
+	printf("Next free block: %d\n", sb->nextFB);
+	printf("Root inode: %d\n", sb->rootNode);
+}
+
 void printFB(freeblock *fb) {
 	printf("] Printing free block\n");
 	printf("Block type:  %d\n", fb->blockType);
@@ -87,9 +94,10 @@ void printFB(freeblock *fb) {
 }
 
 void printAllFB() {
-	freeblock *ptr;
+	freeblock *ptr = malloc(BLOCKSIZE);
 	readBlock(mountedDisk, sb->nextFB, ptr);
-	while (ptr->nextBlockNum <= numFreeBlocks) {
+
+	while (ptr->nextBlockNum < numFreeBlocks) {
 		printFB(ptr);
 		readBlock(mountedDisk, ptr->nextBlockNum, ptr);
 	}
@@ -266,21 +274,13 @@ int tfs_seek(fileDescriptor FD, int offset) { /*not done (obviously)*/
 	return 0;
 }
 
-
 int main() {
-		// TESTING
-
+	// TESTING
 	printf("-- TESTING tfs_mkfs() --\n");
 	int res = tfs_mkfs("tinyFSDisk", DEFAULT_DISK_SIZE);
-	freeblock *buf = malloc(BLOCKSIZE);
-	readBlock(mountedDisk, 1, buf);
-	printf("block type: %d\tblock num %d\n", buf->blockType, buf->blockNum);
+	printAllFB();
+	printSB();
 
-	/*
-	while (buf->nextBlockNum < 10) {
-		printf("block type: %d\tblock num %d\n", buf->blockType, buf->blockNum);
-		readBlock(mountedDisk, buf->nextBlockNum, buf);
-	}
-	*/
+	printf("-- TESTING RESOURCE TABLE --\n");
 	return 0;
 }
