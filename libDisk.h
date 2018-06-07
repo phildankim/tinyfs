@@ -5,6 +5,15 @@
 #include <stdlib.h>
 
 #define BLOCKSIZE 256
+#define DISK_DEFAULT 20
+
+int getFD(int disk);
+int searchDisk(char *fname);
+
+typedef struct Disk {
+	char fname[9];
+	int fd;
+} Disk;
 
 //fileDescriptor retrieveFD(int disk);
 

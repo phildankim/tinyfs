@@ -11,20 +11,22 @@ ResourceTableEntry rt[DEFAULT_RT_SIZE];
 int mountedDisk = UNMOUNTED; // this is for mount/unmount, keeps track of which disk to operate on
 int numFreeBlocks = 40;
 int rtSize = 0;
-int otSize = 0;
 
 /////////////////////////
 /// STRUCT OPERATIONS ///
 /////////////////////////
 
-int createRTEntry(char *fname) { // incomplete, also no way of knowing if we have enough space in RT for more
+int createRTEntry(char *fname, uint8_t inodeNum) { // incomplete, also no way of knowing if we have enough space in RT for more
+	int res;
 	rt[rtSize].fd = rtSize;
+	res = rt[rtSize].fd;
 	strcpy(rt[rtSize].fname, fname);
 	rt[rtSize].opened = 0; /*not yet opened */
-	rt[rtSize].inodeNum = -1; //this is not complete
+	rt[rtSize].inodeNum = inodeNum; //this is not complete
 	rtSize += 1;
 
-	return rt[rtSize].fd;
+
+	return res;
 }
 
 fileDescriptor searchRT(char *fname){
@@ -32,7 +34,6 @@ fileDescriptor searchRT(char *fname){
 	while (i < rtSize) {
 		if (strcmp(rt[i].fname, fname) == 0) {
 			return i; /*return fd when found */
-		
 		}
 		else {
 			i += 1;
@@ -42,13 +43,26 @@ fileDescriptor searchRT(char *fname){
 	return notFound;
 }
 
+void printRT() {
+	int i;
+	ResourceTableEntry ptr;
+	printf("\n] Printing RT:\n");
+	for (i = 0; i < rtSize; i++) {
+		ptr = rt[i];
+		printf("\nfname: %s\n", ptr.fname);
+		printf("fd: %d\n", ptr.fd);
+		printf("inode: %d\n", ptr.inodeNum);
+		printf("opened: %d\n", ptr.opened);
+	}
+}
+
 void initSB() {
 	if (sb == NULL) {
 		sb = calloc(1, BLOCKSIZE);
 		sb->blockType = SUPERBLOCK;
 		sb->magicN = MAGIC_N;
 		sb->nextFB = 1;
-		sb->rootNode = -1;
+		sb->rootNode = 0;
 		writeBlock(mountedDisk, 0, sb);
 	}
 }
@@ -58,12 +72,18 @@ void initSB() {
    then update SB's next FB to that
 */
 void updateSB(int bNum) { 
-	freeblock *ptr;
+	printf("In updateSB(): \n");
+	freeblock *ptr = malloc(BLOCKSIZE);
 	readBlock(mountedDisk, bNum, ptr);
 	int next = ptr->nextBlockNum;
 	sb->nextFB = next;
+
+	printf("new nextFB: %d\n", sb->nextFB);
+
 	numFreeBlocks -= 1;
+
 	printf("numFreeBlocks: %d\n", numFreeBlocks);
+	free(ptr);
 }
 
 void initFBList(int nBytes) {
@@ -101,8 +121,8 @@ void printAllFB() {
 		printFB(ptr);
 		readBlock(mountedDisk, ptr->nextBlockNum, ptr);
 	}
+	free(ptr);
 }
-
 
 int createIN(char *fname) { // returns inode blocknum, also incomplete
 	inode *new = malloc(BLOCKSIZE);
@@ -111,13 +131,14 @@ int createIN(char *fname) { // returns inode blocknum, also incomplete
 	strcpy(new->fname, fname);
 	new->fSize = 0;
 	new->data = -1; // FileExtent has not been created yet at this point
-	new->next = -1; 
+	new->next = 0; 
 
 	int nextFB;
-	if (sb->rootNode < 0) { // root inode has not yet been initialized
+	if (sb->rootNode == 0) { // root inode has not yet been initialized
 		nextFB = 1; // guaranteed that if inode not init, first FB is at block 1
 		new->blockNum = nextFB;
 		sb->rootNode = nextFB;
+		printf("in creatIN(): \nsb->rootNode = %d\n", sb->rootNode);
 	}
 	else {
 		nextFB = sb->nextFB; 
@@ -133,13 +154,14 @@ int createIN(char *fname) { // returns inode blocknum, also incomplete
 }
 
 void insertIN(uint8_t new) {
-	inode *ptr;
+	inode *ptr = malloc(BLOCKSIZE);
 	readBlock(mountedDisk, sb->rootNode, ptr);
-	while (ptr->next > 0) {
+	while (ptr->next != 0) {
 		readBlock(mountedDisk, ptr->next, ptr);
 	}
 	ptr->next = new;
 	printf("inode inserted correctly at bNum: %d\n", ptr->next);
+	free(ptr);
 }
 
 /////////////////////////
@@ -180,11 +202,17 @@ Must return a specified success/error code. */
 int tfs_mount(char *filename) {
 	// this is just a matter of grabbing the fd correspondent to the filename
 	// and using that fd to read/write
-	if (mountedDisk == UNMOUNTED) {
-		tfs_unmount();
+	printf("] Mounting %s\n", filename);
+	if (mountedDisk != UNMOUNTED) {
+		printf("there is already a mounted disk\n");
+		return -8;
 	}
 
-	int disk = openDisk(filename, 0);
+	int disk = searchDisk(filename);
+	if (disk < 0) {
+		printf("in tfs_mount() -- disk not found\n");
+		return -7;
+	}
 	if (disk == -1) {
 		printf("error - invalid file\n");
 		return -1;
@@ -204,6 +232,7 @@ int tfs_mount(char *filename) {
 	return 0;
 }
 int tfs_unmount(void) {
+	printf("] Unmounting disk\n");
 	if (mountedDisk == UNMOUNTED) {
 		printf("nothing to unmount -- exiting\n");
 		return -5;
@@ -216,7 +245,7 @@ int tfs_unmount(void) {
 Creates a dynamic resource table entry for the file, and returns a file descriptor (integer) 
 that can be used to reference this file while the filesystem is mounted. */
 fileDescriptor tfs_openFile(char *name) {
-	if (mountedDisk != UNMOUNTED) {
+	if (mountedDisk == UNMOUNTED) {
 		printf("nothing mounted -- exiting\n");
 		return -5;
 	} 
@@ -228,8 +257,8 @@ fileDescriptor tfs_openFile(char *name) {
 
 	fileDescriptor fd = searchRT(name); //check if file already in table
 	if (fd < 0) { // not exists
-		fd = createRTEntry(name);
 		int inodeBlockNum = createIN(name); // create inode
+		fd = createRTEntry(name, inodeBlockNum);
 
 		/****** SET FILE AS OPEN **************/
 		rt[fd].opened = 1;
@@ -275,12 +304,57 @@ int tfs_seek(fileDescriptor FD, int offset) { /*not done (obviously)*/
 }
 
 int main() {
-	// TESTING
+	// TESTING MKFS
 	printf("-- TESTING tfs_mkfs() --\n");
-	int res = tfs_mkfs("tinyFSDisk", DEFAULT_DISK_SIZE);
-	printAllFB();
+	char *fname1 = "tinyFSDisk";
+	printf("\n] Opening disk (file) %s\n", fname1);
+	int res = tfs_mkfs(fname1, DEFAULT_DISK_SIZE);
+	printf("Disk num for %s: %d\n", fname1, searchDisk(fname1));
 	printSB();
 
-	printf("-- TESTING RESOURCE TABLE --\n");
+	tfs_unmount();
+	printf("Currently mounted: %d\n", mountedDisk);
+	tfs_mount("tinyFSDisk");
+	printf("Currently mounted: %d\n", mountedDisk);
+
+	char *fname2 = "test.txt";
+	printf("\n] Opening disk (file) %s\n", fname2);
+	res = tfs_mkfs(fname2, DEFAULT_DISK_SIZE);
+	printf("Disk num for %s: %d\n", fname2, searchDisk(fname2));
+	printSB();
+	printf("Currently mounted: %d\n", mountedDisk);
+
+	// TESTING OPENFILE
+	printf("\n-- TESTING tfs_openFile() --\n");
+	char *fname3 = "a.txt";
+	printf("] Opening %s\n", fname3);
+	int fd = tfs_openFile(fname3);
+	printf("fd for file %s: %d\n\n", fname3, fd);
+
+	char *fname4 = "b.txt";
+	printf("] Opening %s\n", fname4);
+	fd = tfs_openFile(fname4);
+	printf("fd for file %s: %d\n\n", fname4, fd);
+	
+	//printAllFB();
+	//printSB();
+
+	/*
+	printf("\n-- TESTING tfs_openFile() --\n");
+	fileDescriptor fd = tfs_openFile("a.txt");
+	printf("\nfd for a.txt: %d\n", fd);
+	fd = tfs_openFile("b.txt");
+	printf("\nfd for b.txt: %d\n", fd);
+	fd = tfs_openFile("a.txt");
+	printf("\nfd for a.txt: %d\n", fd);
+	//printSB();
+	//printRT();
+	*/
+
+	//res = tfs_mkfs("disk2", DEFAULT_DISK_SIZE);
+	//printAllFB();
+	//printSB();
+
+
 	return 0;
 }
