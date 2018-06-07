@@ -21,6 +21,7 @@ typedef int fileDescriptor;
 #define FILE_EXTENT 3
 #define FREE_BLOCK 4
 #define UNMOUNTED -1
+#define UNINIT -1
 #define FNAME_LIMIT 8
 #define MAGIC_N 0x45
 
