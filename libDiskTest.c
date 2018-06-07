@@ -1,4 +1,10 @@
 #include "libDisk.h"
+#include "tinyFS.h"
+
+superblock *sb = NULL;
+ResourceTableEntry *top = NULL;
+int mountedDisk = UNMOUNTED; // this is for mount/unmount, keeps track of which disk to operate on
+int numFreeBlocks = 40;
 
 int main() {
    /*
@@ -22,11 +28,6 @@ int main() {
    */
 
    //d4 = openDisk("empty", BLOCKSIZE);
-
-
-
-   // Testing
-
-   
    return 0;
+
 }
