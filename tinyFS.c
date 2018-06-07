@@ -5,66 +5,42 @@
 #include <string.h>
 
 superblock *sb = NULL;
-ResourceTableEntry *top = NULL;
+ResourceTableEntry rt[DEFAULT_RT_SIZE];
+OpenFileTable ot[DEFAULT_OT_SIZE];
+
 int mountedDisk = UNMOUNTED; // this is for mount/unmount, keeps track of which disk to operate on
 int numFreeBlocks = 40;
+int rtSize = 0;
+int otSize = 0;
 
-/*
-int errorCheck(int errno) {
-	if (errno == -1) {
-		printf("error - invalid file\n");
-		return -1;
-	}
-	if (errno == -2) {
-		printf("error - invalid nBytes\n");
-		return -2;
-	}
-}
-*/
 /////////////////////////
 /// STRUCT OPERATIONS ///
 /////////////////////////
 
-void initResourceTable(char *fname) {
-	if (top == NULL) {
-		top = malloc(sizeof(ResourceTableEntry));
-		top->fname = fname;
-		top->next = NULL;
-	}
+int createRTEntry(char *fname) { // incomplete, also no way of knowing if we have enough space in RT for more
+	ResourceTableEntry new = rt[rtSize];
+	strcpy(new.fname, fname);
+	new.fd = rtSize;
+	new.inodeNum = -1; //this is not complete
+	rtSize += 1;
+
+	return new.fd;
 }
 
-int createRTEntry(char *fname) { // incomplete
-	ResourceTableEntry *new = malloc(sizeof(ResourceTableEntry));
-	int fd = open(fname, "r+");
-	new->fname = fname;
-	new->fd = fd;
-	new->next = NULL;
-	insertRTEntry(new);
-
-	return fd;
-}
-
-void insertRTEntry(ResourceTableEntry *new) {
-	ResourceTableEntry *ptr = top;
-	while (ptr->next != NULL) {
-		ptr = ptr->next;
+fileDescriptor searchRT(char *fname) {
+	int i = 0;
+	ResourceTableEntry ptr = rt[0];
+	while (i < rtSize) {
+		if (strcmp(ptr.fname, fname) == 0) {
+			return ptr.fd;
+		}
+		else {
+			i += 1;
+			ptr = rt[i];
+		}
 	}
-	ptr->next = new;
-}
-
-int searchRT(char *fname) {
-	initResourceTable(fname);
-	ResourceTableEntry *ptr = top;
-	while (strcmp(ptr->fname, fname) != 0 || ptr->next != NULL) {
-		ptr = ptr->next;
-	}
-	if (strcmp(ptr->fname, fname) == 0) {
-		return ptr->fd; // file already in resource table
-	}
-	else {
-		return -1; // file not in resource table
-	}
-
+	fileDescriptor notFound = -1;
+	return notFound;
 }
 
 void initSB() {
@@ -78,11 +54,17 @@ void initSB() {
 	}
 }
 
-void updateSB(int bNum) {
+/* reads in FB at given bNum spot,
+   takes that FB's "next" FB,
+   then update SB's next FB to that
+*/
+void updateSB(int bNum) { 
 	freeblock *ptr;
 	readBlock(mountedDisk, bNum, ptr);
 	int next = ptr->nextBlockNum;
 	sb->nextFB = next;
+	numFreeBlocks -= 1;
+	printf("numFreeBlocks: %d\n", numFreeBlocks);
 }
 
 void initFBList(int nBytes) {
@@ -94,28 +76,53 @@ void initFBList(int nBytes) {
 		newFB->magicN = MAGIC_N;
 		newFB->blockNum = i;
 		newFB->nextBlockNum = i + 1;
-		//printf("%d\n", newFB->blockNum);
 		writeBlock(mountedDisk, i, newFB);
 	}
 }
+
+void printFB(freeblock *fb) {
+	printf("] Printing free block\n");
+	printf("Block type:  %d\n", fb->blockType);
+	printf("Block num: %d\n", fb->blockNum);
+	printf("Next block num: %d\n\n", fb->nextBlockNum);
+}
+
+void printAllFB() {
+	freeblock *ptr;
+	readBlock(mountedDisk, sb->nextFB, ptr);
+	while (ptr->nextBlockNum <= numFreeBlocks) {
+		printFB(ptr);
+		readBlock(mountedDisk, ptr->nextBlockNum, ptr);
+	}
+}
+
+
+typedef struct freeblock {
+	uint8_t blockType;
+	uint8_t magicN;
+	uint8_t blockNum;
+	uint8_t nextBlockNum;
+	char emptyOffset[BLOCKSIZE - 4];
+} freeblock; 
+
 
 int createIN(char *fname) { // returns inode blocknum, also incomplete
 	inode *new = malloc(BLOCKSIZE);
 	new->blockType = INODE;
 	new->magicN = MAGIC_N;
-	new->fname = fname;
-	new->fType = 0; // this is not completely correct, unsure whether to use LL or Tree, probably create macros for this value
+	strcpy(new->fname, fname);
 	new->fSize = 0;
 	new->data = -1; // FileExtent has not been created yet at this point
 	new->next = -1; 
 
-	// for now, we are implementing inodes in a linked list
+	int nextFB;
 	if (sb->rootNode < 0) { // root inode has not yet been initialized
-		new->blockNum = 1;
-		sb->rootNode = 1;
+		nextFB = 1; // guaranteed that if inode not init, first FB is at block 1
+		new->blockNum = nextFB;
+		sb->rootNode = nextFB;
 	}
 	else {
-		int nextFB = sb->nextFB; // 
+		nextFB = sb->nextFB; 
 		new->blockNum = nextFB;
 	}
 	updateSB(nextFB);
@@ -123,7 +130,6 @@ int createIN(char *fname) { // returns inode blocknum, also incomplete
 		printf("in createIN - writeBlock failed -- exiting\n");
 		return -7;
 	}
-	numFreeBlocks -= 1;
 	insertIN(new->blockNum);
 	return new->blockNum;
 }
@@ -135,6 +141,7 @@ void insertIN(uint8_t new) {
 		readBlock(mountedDisk, ptr->next, ptr);
 	}
 	ptr->next = new;
+	printf("inode inserted correctly at bNum: %d\n", ptr->next);
 }
 
 /////////////////////////
@@ -221,7 +228,7 @@ fileDescriptor tfs_openFile(char *name) {
 		return -6;
 	}
 
-	int fd = searchRT(name); //check if file already in table
+	fileDescriptor fd = searchRT(name); //check if file already in table
 	if (fd < 0) { // not exists
 		fd = createRTEntry(name);
 		int inodeBlockNum = createIN(name); // create inode
@@ -243,6 +250,9 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size) {
 	// acquire data block (fileExtent) remaining size
 	// allocate correct number of FileExtent depending on how much space is needed ^^
 	// writeBlock(mountedDisk, ..., buffer);
+	// update superblock
+	// update inode
+	// update resource table??
 }
 
 /* deletes a file and marks its blocks as free on disk. */
@@ -258,14 +268,21 @@ int tfs_seek(fileDescriptor FD, int offset) {
 
 }
 
+
 int main() {
+		// TESTING
+
+	printf("-- TESTING tfs_mkfs() --\n");
 	int res = tfs_mkfs("tinyFSDisk", DEFAULT_DISK_SIZE);
 	freeblock *buf = malloc(BLOCKSIZE);
 	readBlock(mountedDisk, 1, buf);
+	printf("block type: %d\tblock num %d\n", buf->blockType, buf->blockNum);
 
-	while (buf->nextBlockNum < numFreeBlocks) {
+	/*
+	while (buf->nextBlockNum < 10) {
 		printf("block type: %d\tblock num %d\n", buf->blockType, buf->blockNum);
 		readBlock(mountedDisk, buf->nextBlockNum, buf);
 	}
+	*/
 	return 0;
 }

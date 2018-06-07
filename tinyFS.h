@@ -7,6 +7,11 @@
 This is a default size. You must be able to support different possible values */
 #define DEFAULT_DISK_SIZE 10240 
 
+/* this is arbitray, we currently have no way of knowing if 
+these numbers will be enough (or too much) */
+#define DEFAULT_OT_SIZE 10 
+#define DEFAULT_RT_SIZE 15    
+
 /* use this name for a default disk file name */
 #define DEFAULT_DISK_NAME “tinyFSDisk” 	
 typedef int fileDescriptor;
@@ -21,6 +26,7 @@ typedef int fileDescriptor;
 
 void initSB();
 void initFBList(int nBytes);
+void insertIN(uint8_t new);
 int errorCheck(int errno);
 int tfs_mkfs(char *filename, int nBytes);
 int tfs_mount(char *filename);
@@ -44,13 +50,11 @@ typedef struct inode {
 	uint8_t blockType;
 	uint8_t magicN;
 	uint8_t blockNum;
-	uint8_t *fname[9];
-	uint8_t fType; //0 for regular file, 1 for dir
+	uint8_t fname[9];
 	uint8_t fSize;
 	uint8_t data;
-	uint8_t next; // linked list for now
-	//struct inode **dirNodes;
-	char emptyOffset[BLOCKSIZE - 16];
+	uint8_t next; // linked list "pointer"
+	char emptyOffset[BLOCKSIZE - 15];
 } inode;
 
 typedef struct superblock {
@@ -71,7 +75,11 @@ typedef struct freeblock {
 
 typedef struct ResourceTableEntry {
 	char fname[9];
-	fileDescriptor fd;
+	fileDescriptor fd; // this is the blockNum of the root data block correspondent to the file
 	int inodeNum;
-	struct ResourceTableEntry *next;
 } ResourceTableEntry;
+
+typedef struct OpenFileTable {
+	fileDescriptor fd;
+	char fname[9];
+} OpenFileTable;
