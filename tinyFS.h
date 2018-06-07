@@ -50,7 +50,7 @@ typedef struct inode {
 	uint8_t blockType;
 	uint8_t magicN;
 	uint8_t blockNum;
-	uint8_t fname[9];
+	char fname[9];
 	uint8_t fSize;
 	uint8_t data;
 	uint8_t next; // linked list "pointer"

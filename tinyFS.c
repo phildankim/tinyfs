@@ -97,15 +97,6 @@ void printAllFB() {
 }
 
 
-typedef struct freeblock {
-	uint8_t blockType;
-	uint8_t magicN;
-	uint8_t blockNum;
-	uint8_t nextBlockNum;
-	char emptyOffset[BLOCKSIZE - 4];
-} freeblock; 
-
-
 int createIN(char *fname) { // returns inode blocknum, also incomplete
 	inode *new = malloc(BLOCKSIZE);
 	new->blockType = INODE;
@@ -253,6 +244,7 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size) {
 	// update superblock
 	// update inode
 	// update resource table??
+	return 0;
 }
 
 /* deletes a file and marks its blocks as free on disk. */
@@ -266,6 +258,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer);
 /* change the file pointer location to offset (absolute). Returns success/error codes.*/
 int tfs_seek(fileDescriptor FD, int offset) {
 
+	return 0;
 }
 
 
