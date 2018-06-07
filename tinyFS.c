@@ -11,7 +11,6 @@ ResourceTableEntry rt[DEFAULT_RT_SIZE];
 int mountedDisk = UNMOUNTED; // this is for mount/unmount, keeps track of which disk to operate on
 int numFreeBlocks = 40;
 int rtSize = 0;
-int otSize = 0;
 
 /////////////////////////
 /// STRUCT OPERATIONS ///
@@ -32,7 +31,6 @@ fileDescriptor searchRT(char *fname){
 	while (i < rtSize) {
 		if (strcmp(rt[i].fname, fname) == 0) {
 			return i; /*return fd when found */
-		
 		}
 		else {
 			i += 1;
@@ -58,7 +56,7 @@ void initSB() {
    then update SB's next FB to that
 */
 void updateSB(int bNum) { 
-	freeblock *ptr;
+	freeblock *ptr = malloc(BLOCKSIZE);
 	readBlock(mountedDisk, bNum, ptr);
 	int next = ptr->nextBlockNum;
 	sb->nextFB = next;
@@ -103,7 +101,6 @@ void printAllFB() {
 	}
 }
 
-
 int createIN(char *fname) { // returns inode blocknum, also incomplete
 	inode *new = malloc(BLOCKSIZE);
 	new->blockType = INODE;
@@ -133,7 +130,7 @@ int createIN(char *fname) { // returns inode blocknum, also incomplete
 }
 
 void insertIN(uint8_t new) {
-	inode *ptr;
+	inode *ptr = malloc(BLOCKSIZE);
 	readBlock(mountedDisk, sb->rootNode, ptr);
 	while (ptr->next > 0) {
 		readBlock(mountedDisk, ptr->next, ptr);
@@ -216,7 +213,7 @@ int tfs_unmount(void) {
 Creates a dynamic resource table entry for the file, and returns a file descriptor (integer) 
 that can be used to reference this file while the filesystem is mounted. */
 fileDescriptor tfs_openFile(char *name) {
-	if (mountedDisk != UNMOUNTED) {
+	if (mountedDisk == UNMOUNTED) {
 		printf("nothing mounted -- exiting\n");
 		return -5;
 	} 
@@ -281,6 +278,8 @@ int main() {
 	printAllFB();
 	printSB();
 
-	printf("-- TESTING RESOURCE TABLE --\n");
+	printf("-- TESTING tfs_openFile() --\n");
+	fileDescriptor fd = tfs_openFile("a.txt");
+	printf("fd for a.txt: %d\n", fd);
 	return 0;
 }
