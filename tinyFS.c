@@ -297,17 +297,17 @@ int tfs_readByte(fileDescriptor FD, char *buffer);
 /* change the file pointer location to offset (absolute). Returns success/error codes.*/
 int tfs_seek(fileDescriptor FD, int offset) { 
 	int current;
-	int blocknum;
+	int blockNum;
 	int byte;
 	int i = 0;
 	//FileExtent ptr = malloc(BLOCKSIZE);
 	FileExtent *head = malloc(BLOCKSIZE);
 	inode *inodePtr = malloc(BLOCKSIZE);
 
-	current = rt[FD].inode;
+	current = rt[FD].inodeNum;
 
 	readBlock(mountedDisk, current, inodePtr); /* grab inode */
-	readBlock(mountedDisk, inodePtr.data, head); /* grab first fileextent */
+	readBlock(mountedDisk, inodePtr->data, head); /* grab first fileextent */
 
 	blockNum = offset / BLOCKSIZE;
 
