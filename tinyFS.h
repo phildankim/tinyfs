@@ -53,7 +53,7 @@ typedef struct inode {
 	uint8_t blockNum;
 	char fname[9];
 	uint8_t fSize;
-	uint8_t data;
+	uint8_t data; /* ptr to first data block (type = fileextent)*/
 	uint8_t next; // linked list "pointer"
 	char emptyOffset[BLOCKSIZE - 15];
 } inode;
@@ -78,6 +78,8 @@ typedef struct ResourceTableEntry { /*index = fd*/
 	char fname[9];
 	fileDescriptor fd; // this is the blockNum of the root data block correspondent to the file
 	int inodeNum;
+	int blockOffset;
+	int byteOffset;
 	int opened; /* 0 if unopened, 1 if opened */
 } ResourceTableEntry;
 

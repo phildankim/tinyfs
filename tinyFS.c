@@ -295,10 +295,26 @@ If the file pointer is already at the end of the file then tfs_readByte() should
 int tfs_readByte(fileDescriptor FD, char *buffer);
 
 /* change the file pointer location to offset (absolute). Returns success/error codes.*/
-int tfs_seek(fileDescriptor FD, int offset) { /*not done (obviously)*/
-	
+int tfs_seek(fileDescriptor FD, int offset) { 
+	int current;
+	int blocknum;
+	int byte;
+	int i = 0;
+	//FileExtent ptr = malloc(BLOCKSIZE);
+	FileExtent *head = malloc(BLOCKSIZE);
+	inode *inodePtr = malloc(BLOCKSIZE);
 
+	current = rt[FD].inode;
 
+	readBlock(mountedDisk, current, inodePtr); /* grab inode */
+	readBlock(mountedDisk, inodePtr.data, head); /* grab first fileextent */
+
+	blockNum = offset / BLOCKSIZE;
+
+	byte = offset % BLOCKSIZE;
+
+	rt[FD].blockOffset = blockNum;
+	rt[FD].byteOffset = byte;
 
 	return 0;
 }
