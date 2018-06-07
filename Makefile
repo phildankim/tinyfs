@@ -1,5 +1,4 @@
-diskmake: libDisk.c libDisk.h
-	gcc -Wall -g libDisk.c 
+all: tinyfs
 
-testmake: libDisk.c libDisk.h libDiskTest.c
-	gcc -Wall -g libDiskTest.c
+tinyfs:
+	gcc libDisk.c libDisk.h tinyFS.c tinyFS.h -g

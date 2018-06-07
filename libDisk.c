@@ -23,12 +23,16 @@ int openDisk(char *filename, int nBytes) {
 	}
 
 	if (nBytes > 0) {
-		if ((fd = open(filename, O_RDWR)) == -1) {
+		if ((fd = open(filename, O_CREAT | O_RDWR)) == -1) {
 			return -1; // invalid file
 		}
 		if (access(filename, F_OK) != -1) { // file exists
 			if (ftruncate(fd, nBytes) == -1) {
 				return -1; // invalid file
+			}
+			int i;
+			for (i = 0; i < nBytes; i++) {
+				write(fd, "\0", 1);
 			}
 		}
 	}
@@ -44,6 +48,9 @@ int openDisk(char *filename, int nBytes) {
 
 int readBlock(int disk, int bNum, void *block) {
 	int fd = diskArray[disk];
+	if (fd < 2) { // stdin, stdout, stderr
+		return -2; // illegal fds
+	}
 
 	if (lseek(fd, bNum*BLOCKSIZE, SEEK_SET) == -1) {
 		return -1;
@@ -57,6 +64,9 @@ int readBlock(int disk, int bNum, void *block) {
 
 int writeBlock(int disk, int bNum, void *block){
 	int fd = diskArray[disk];
+	if (fd < 2) { // stdin, stdout, stderr
+		return -2; // illegal fds
+	}
 
 	if (lseek(fd, bNum*BLOCKSIZE, SEEK_SET) == -1) {
 		return -1;
@@ -88,18 +98,16 @@ int createDisk(int fd) {
 
 	return newDisk;
 }
+
 /*
 int main() {
 	int d1 = openDisk("test.txt", BLOCKSIZE);
 	printf("%d\n", d1);
-
 	int d2 = openDisk("test1.txt", BLOCKSIZE);
 	printf("%d\n", d2);
-
 	char *buf = malloc(sizeof(int) * BLOCKSIZE);
 	int res = readBlock(d1, 1, buf);
 	printf("%s\n", buf);
-
 	char *buf2 = "poo";
 	writeBlock(d2, 1, buf);
 	
