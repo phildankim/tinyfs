@@ -82,6 +82,7 @@ typedef struct ResourceTableEntry { /*index = fd*/
 	int blockOffset;
 	int byteOffset;
 	int opened; /* 0 if unopened, 1 if opened */
+	int deleted; /*0 if deleted, 1 if present */
 } ResourceTableEntry;
 
 /*typedef struct OpenFileTableEntry {

@@ -26,6 +26,7 @@ int createRTEntry(char *fname, uint8_t inodeNum) { // incomplete, also no way of
 	res = rt[rtSize].fd;
 	strcpy(rt[rtSize].fname, fname);
 	rt[rtSize].opened = 0; /*not yet opened */
+	rt[rtSize].deleted = 1; /*present */
 	rt[rtSize].inodeNum = inodeNum; 
 	rt[rtSize].blockOffset = 0;
 	rt[rtSize].byteOffset = 0;
@@ -207,6 +208,7 @@ int createDB(int inodeNum) {
 	writeBlock(mountedDisk, new->blockNum, new);
 	insertDB(ptr, new);
 	free(new);
+	return 0;
 }
 
 int insertDB(inode *inodePtr, FileExtent *new) {
@@ -391,13 +393,63 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size) {
 
 /* deletes a file and marks its blocks as free on disk. */
 int tfs_deleteFile(fileDescriptor FD) {
-	ResourceTableEntry *entry = rt[FD];
+	int current;
+	freeblock *newFB;
+	FileExtent *head = malloc(BLOCKSIZE);
+	FileExtent *previous = malloc(BLOCKSIZE);
 	inode *inodePtr = malloc(BLOCKSIZE);
-	readBlock(mountedDisk, entry.inodeNum, inodePtr); /* grab inode */
+	
+	ResourceTableEntry entry = rt[FD];
+
+	current = rt[FD].inodeNum;
+	readBlock(mountedDisk, current, inodePtr); /* grab inode */
+	readBlock(mountedDisk, inodePtr->data, previous); /* grab first fileextent */
+
+	readBlock(mountedDisk, previous->next, head);
+
+	while (head->next != 0){ /*free linked list of blocks) */
+
+		newFB = calloc(previous->blockNum, BLOCKSIZE);
+		newFB->blockType = FREE_BLOCK;
+		newFB->magicN = MAGIC_N;
+		newFB->blockNum = previous->blockNum;
+		newFB->nextBlockNum = head->blockNum;
+		writeBlock(mountedDisk, previous->blockNum, newFB);
+		numFreeBlocks +=1;
+		free(previous);
+		readBlock(mountedDisk, head->next, head);
+	}
+
+	
+	newFB = calloc(previous->blockNum, BLOCKSIZE);
+	newFB->blockType = FREE_BLOCK;
+	newFB->magicN = MAGIC_N;
+	newFB->blockNum = previous->blockNum;
+	newFB->nextBlockNum = head->blockNum;
+	writeBlock(mountedDisk, previous->blockNum, newFB);
+	numFreeBlocks +=1;
+	free(previous);
+
+	newFB = calloc(head->blockNum, BLOCKSIZE);
+	newFB->blockType = FREE_BLOCK;
+	newFB->magicN = MAGIC_N;
+	newFB->blockNum = head->blockNum;
+	newFB->nextBlockNum = 0;
+	writeBlock(mountedDisk, head->blockNum, newFB);
+	numFreeBlocks +=1;
+	free(head);
+
+	/*free inode & override with free block */
+	newFB = calloc(inodePtr->blockNum, BLOCKSIZE);
+	newFB->blockType = FREE_BLOCK;
+	newFB->magicN = MAGIC_N;
+	newFB->blockNum = inodePtr->blockNum;
+	newFB->nextBlockNum = 0;
+	writeBlock(mountedDisk, inodePtr->blockNum, newFB);
+	numFreeBlocks +=1;
 	free (inodePtr);
 
-	free(entry);
-	rt[FD] = NULL;
+	rt[FD].deleted = 0;
 
 	return 0;
 }
