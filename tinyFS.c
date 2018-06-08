@@ -350,7 +350,15 @@ fileDescriptor tfs_openFile(char *name) {
 }
 
 /* Closes the file, de-allocates all system/disk resources, and removes table entry */
-int tfs_closeFile(fileDescriptor FD);
+int tfs_closeFile(fileDescriptor FD) {
+	if (sizeof(rt) <= FD) {
+		printf("in tfs-closeFile() -- invalid FD\n");
+		return -10; 
+	}
+	rt[FD].opened = 0;
+
+	return 0;
+}
 
 /* Writes buffer ‘buffer’ of size ‘size’, which represents an entire file’s content, to the file system. 
 Sets the file pointer to 0 (the start of file) when done. 
@@ -449,6 +457,7 @@ int tfs_deleteFile(fileDescriptor FD) {
 	numFreeBlocks +=1;
 	free (inodePtr);
 
+	rt[FD].opened = 0;
 	rt[FD].deleted = 0;
 
 	return 0;
