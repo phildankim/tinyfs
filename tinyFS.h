@@ -11,6 +11,7 @@ This is a default size. You must be able to support different possible values */
 these numbers will be enough (or too much) */
 #define DEFAULT_OT_SIZE 10 
 #define DEFAULT_RT_SIZE 15    
+#define DATA_HEADER_OFFSET 4
 
 /* use this name for a default disk file name */
 #define DEFAULT_DISK_NAME “tinyFSDisk” 	
@@ -78,6 +79,8 @@ typedef struct ResourceTableEntry { /*index = fd*/
 	char fname[9];
 	fileDescriptor fd; // this is the blockNum of the root data block correspondent to the file
 	int inodeNum;
+	int blockOffset;
+	int byteOffset;
 	int opened; /* 0 if unopened, 1 if opened */
 } ResourceTableEntry;
 

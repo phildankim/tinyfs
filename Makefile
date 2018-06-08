@@ -1,4 +1,4 @@
 all: tinyfs
 
 tinyfs:
-	gcc libDisk.c libDisk.h tinyFS.c tinyFS.h -g
+	gcc libDisk.c libDisk.h tinyFS.c tinyFS.h -g -lm

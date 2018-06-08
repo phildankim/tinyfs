@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #define BLOCKSIZE 256
 #define DISK_DEFAULT 20
