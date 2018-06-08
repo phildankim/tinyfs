@@ -11,6 +11,7 @@ This is a default size. You must be able to support different possible values */
 these numbers will be enough (or too much) */
 #define DEFAULT_OT_SIZE 10 
 #define DEFAULT_RT_SIZE 15    
+#define DATA_HEADER_OFFSET 4
 
 /* use this name for a default disk file name */
 #define DEFAULT_DISK_NAME “tinyFSDisk” 	
@@ -53,7 +54,7 @@ typedef struct inode {
 	uint8_t blockNum;
 	char fname[9];
 	uint8_t fSize;
-	uint8_t data; /* ptr to first data block (type = fileextent)*/
+	uint8_t data;
 	uint8_t next; // linked list "pointer"
 	char emptyOffset[BLOCKSIZE - 15];
 } inode;
