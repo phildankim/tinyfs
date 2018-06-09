@@ -27,6 +27,7 @@ int createRTEntry(char *fname, uint8_t inodeNum) { // incomplete, also no way of
 	res = rt[currRTSize].fd;
 	strcpy(rt[currRTSize].fname, fname);
 	rt[currRTSize].opened = 0; /*not yet opened */
+	rt[currRTSize].deleted = 1; /*not deleted */
 	rt[currRTSize].inodeNum = inodeNum; 
 	rt[currRTSize].blockOffset = 0;
 	rt[currRTSize].byteOffset = 0;
