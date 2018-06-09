@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 
 #define DEFAULTARRAYSIZE 20
@@ -70,6 +71,7 @@ int readBlock(int disk, int bNum, void *block) {
 
 int writeBlock(int disk, int bNum, void *block){
 	int fd = diskArray[disk].fd;
+	//printf("in writeBlock -- fd for disk %d is %d\n", disk, fd);
 	if (fd < 2) { // stdin, stdout, stderr
 		return -2; // illegal fds
 	}
@@ -77,8 +79,10 @@ int writeBlock(int disk, int bNum, void *block){
 	if (lseek(fd, bNum*BLOCKSIZE, SEEK_SET) == -1) {
 		return -1;
 	}
-	if (write(fd, block, BLOCKSIZE) == -1) {
-		printf("in writeBlock -- write failed\n");
+
+	//int errno;
+	if ((write(fd, block, BLOCKSIZE)) == -1) {
+		printf("in writeBlock -- write failed\nerrno: %d\n", errno);
 		return -1;
 	}
 
@@ -91,13 +95,6 @@ void closeDisk(int disk) {
 }
 
 int createDisk(int fd, char *fname) {
-	/*
-	if (diskSize == 0 || diskArray == NULL) {
-		diskArray = (int*)malloc(sizeof(int) * DEFAULTARRAYSIZE);
-	}
-	else if (diskSize >= DEFAULTARRAYSIZE) {
-		diskArray = (int*)realloc(diskArray, sizeof(int) * diskSize * 2);
-	}*/
 	int newDisk = diskNum;
 	diskArray[newDisk].fd = fd;
 	strcpy(diskArray[newDisk].fname, fname); 

@@ -17,7 +17,6 @@ typedef struct Disk {
 } Disk;
 
 
-
 //fileDescriptor retrieveFD(int disk);
 
 /* This functions opens a regular UNIX file and designates the first nBytes of it as space for the emulated disk. 
