@@ -66,7 +66,9 @@ typedef struct superblock {
 	uint8_t magicN;
 	uint8_t nextFB;
 	uint8_t rootNode;
-	char emptyOffset[BLOCKSIZE - 4];
+	uint8_t numFreeBlocks;
+	uint8_t rtSize;
+	char emptyOffset[BLOCKSIZE - 6];
 } superblock;
 
 typedef struct freeblock {
