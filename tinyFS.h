@@ -12,6 +12,8 @@ these numbers will be enough (or too much) */
 #define DEFAULT_OT_SIZE 10 
 #define DEFAULT_RT_SIZE 15    
 #define DATA_HEADER_OFFSET 4
+#define DEFAULT_DB_SIZE 252
+
 
 /* use this name for a default disk file name */
 #define DEFAULT_DISK_NAME “tinyFSDisk” 	
@@ -45,7 +47,7 @@ typedef struct FileExtent {
 	uint8_t magicN;
 	uint8_t blockNum;
 	uint8_t next;
-	char emptyOffset[BLOCKSIZE - 4];
+	char data[BLOCKSIZE - 4];
 } FileExtent;
 
 typedef struct inode {
