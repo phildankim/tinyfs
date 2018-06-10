@@ -40,6 +40,8 @@ typedef int fileDescriptor;
 #define INVALID_UNMOUNT -12
 #define READ_ONLY -13
 #define INVALID_READ -14
+#define ERR_MAGICN -15
+#define NOTHING_MOUNTED -16
 
 
 int initSB();

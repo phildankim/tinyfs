@@ -629,7 +629,7 @@ int tfs_mount(char *filename) {
 	}
 
 	if (buf[1] != MAGIC_N) {
-		return INVALID_MOUNT; // not the magic number
+		return ERR_MAGICN; // not the magic number
 	}
 
 	mountedDisk = disk;
@@ -664,7 +664,7 @@ fileDescriptor tfs_openFile(char *name) {
 	printf("\n] OPENING FILE %s\n", name);
 	if (mountedDisk == UNMOUNTED) {
 		printf("nothing mounted -- exiting\n");
-		return INVALID_MOUNT;
+		return NOTHING_MOUNTED;
 	} 
 
 	if (sizeof(name) > FNAME_LIMIT) {
@@ -919,6 +919,59 @@ int tfs_seek(fileDescriptor FD, int offset) {
 	rt[FD].byteOffset = byte;
 
 	return 0;
+}
+
+void errorHandling(int error){
+	if (error = INVALID_FD){
+		printf("Error: Invalid File Descriptor.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = INVALID_FNAME){
+		printf("Error: Invalid File Name.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = ROOT_NOT_INITIALIZED){
+		printf("Error: Unable to build resource table...root not initialized.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = NO_FREE_BLOCKS){
+		printf("Error: Unable to update super block...no free blocks available.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = NO_FILES_ON_DISK){
+		printf("Error: There are no files currently on the disk.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = FILE_NOT_OPEN){
+		printf("Error: File is not open. Open before attempting to seek or write.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = INVALID_OFFSET){
+		printf("Error: Unable to build resource table...root not initialized.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = INVALID_FILE){
+		printf("Error: Invalid file.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = INVALID_NBYTES){
+		printf("Error: Invalid nBytes.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = INVALID_DISK){
+		printf("Error: Invalid disk number. Disk not found.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = INVALID_MOUNT){
+		printf("Error: Unable to mount.\n");
+		printf("Have a nice day :)\n");
+	} else if(error = INVALID_UNMOUNT){
+		printf("Error: Unable to unmount.\n");
+		printf("Have a nice day :)\n");
+	}else if (error = READ_ONLY){
+		printf("Error: File is read only. Unable to write or delete.\n");
+		printf("Have a nice day :)\n");
+	} else if (error = INVALID_READ){
+		printf("Error: Unable to read.\n");
+		printf("Have a nice day :)\n");
+	} else if (error = ERR_MAGICN){
+		printf("Error: Magic Number not found.\n");
+		printf("Have a nice day :)\n");
+	}else if (error = NOTHING_MOUNTED){
+		printf("Error: No mounted disk.\n");
+		printf("Have a nice day :)\n");
+	}
+
 }
 
 int main() {
