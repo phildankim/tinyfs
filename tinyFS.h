@@ -78,7 +78,7 @@ typedef struct inode {
 	char fname[9];
 	uint8_t data;
 	uint8_t next; // linked list "pointer"
-	char emptyOffset[BLOCKSIZE - 17];
+	char emptyOffset[BLOCKSIZE - 38];
 	time_t creationTime;
 	time_t accessTime;
 	time_t modificationTime;
