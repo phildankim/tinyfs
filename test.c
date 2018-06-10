@@ -15,6 +15,7 @@ int tfs_rename(char *filename, int FD, inode *node) {
 	
     node->creationTime=time(NULL); /* get current cal time */
     printf("%s",asctime( localtime(&node->creationTime) ) );
+    printf(sizeOf(time_t));
     return 0;
 }
 

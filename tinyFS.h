@@ -26,9 +26,25 @@ typedef int fileDescriptor;
 #define FNAME_LIMIT 8
 #define MAGIC_N 0x45
 
-void initSB();
-void initFBList(int nBytes);
-void insertIN(uint8_t new);
+#define INVALID_FD -1
+#define INVALID_FNAME -2
+#define ROOT_NOT_INITIALIZED -3
+#define NO_FREE_BLOCKS -4
+#define NO_FILES_ON_DISK -5
+#define FILE_NOT_OPEN -6
+#define INVALID_OFFSET -7
+#define INVALID_FILE -8
+#define INVALID_NBYTES -9
+#define INVALID_DISK -10
+#define INVALID_MOUNT -11
+#define INVALID_UNMOUNT -12
+#define READ_ONLY -13
+#define INVALID_READ -14
+
+
+int initSB();
+int initFBList(int nBytes);
+int insertIN(uint8_t new);
 int errorCheck(int errno);
 int tfs_mkfs(char *filename, int nBytes);
 int tfs_mount(char *filename);
