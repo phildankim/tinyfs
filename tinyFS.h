@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <time.h>
 
 /* The default size of the disk and file system block */
 #define BLOCKSIZE 256
@@ -40,6 +41,13 @@ int tfs_deleteFile(fileDescriptor FD);
 int tfs_readByte(fileDescriptor FD, char *buffer);
 int tfs_seek(fileDescriptor FD, int offset);
 
+int tfs_rename(char *filename, int FD);  /* part 3 function */
+int tfs_readdir(); /* part 3 function */
+int tfs_makeRO(char *name);
+int tfs_makeRW(char *name);
+int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data);
+int tfs_readFileInfo(fileDescriptor FD);
+
 typedef struct FileExtent {
 	uint8_t blockType;
 	uint8_t magicN;
@@ -57,6 +65,9 @@ typedef struct inode {
 	uint8_t data;
 	uint8_t next; // linked list "pointer"
 	char emptyOffset[BLOCKSIZE - 15];
+	time_t creationTime;
+	time_t accessTime;
+	time_t modificationTime;
 } inode;
 
 typedef struct superblock {
@@ -83,6 +94,7 @@ typedef struct ResourceTableEntry { /*index = fd*/
 	int byteOffset;
 	int opened; /* 0 if unopened, 1 if opened */
 	int deleted; /*0 if deleted, 1 if present */
+	int readOnly; /*0 if not read only, 1 if read only */
 } ResourceTableEntry;
 
 /*typedef struct OpenFileTableEntry {

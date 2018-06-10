@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 int createDB(int inodeNum, int size, char *buffer, int pos);
 int insertDB(struct inode *inodePtr, FileExtent *new);
@@ -31,6 +32,7 @@ int createRTEntry(char *fname, uint8_t inodeNum) { // incomplete, also no way of
 	rt[currRTSize].inodeNum = inodeNum; 
 	rt[currRTSize].blockOffset = 0;
 	rt[currRTSize].byteOffset = 0;
+	rt[currRTSize].readOnly = 0;
 	sb->rtSize += 1;
 	writeBlock(mountedDisk, 0, sb);
 
@@ -178,6 +180,9 @@ int createIN(char *fname) { // returns inode blocknum, also incomplete
 	new->fSize = 0;
 	new->data = 0; // FileExtent has not been created yet at this point
 	new->next = 0; 
+	new->creationTime = time(NULL);
+	new->accessTime = NULL;
+	new->modificationTime = NULL;
 
 	int nextFB;
 	if (sb->rootNode == 0) { // root inode has not yet been initialized
@@ -322,6 +327,131 @@ int insertDB(inode *inodePtr, FileExtent *new) {
 	return 0;
 }
 
+/////////////////////////
+/// PART 3 OPERATIONS ///
+/////////////////////////
+/* renames a file.  New name should be passed in. */
+int tfs_rename(char *filename, int FD) {
+	inode *inodePtr = malloc(BLOCKSIZE);
+	int num;
+	int length = sizeof(filename);
+	if (length > 8){
+		printf("tfs_rename -- file name too long\n");
+		return -20;
+	} 
+
+	num = rt[FD].inodeNum;
+
+	readBlock(mountedDisk, num, inodePtr); /* grab inode */
+	strcpy(rt[fd].fname, filename);
+	strcpy(inodePtr->fname, filename);
+
+	return 0;
+} 
+
+/* lists all the files and directories on the disk */
+int tfs_readdir() {
+	int i;
+
+	if (sizeof(rt == 0)){
+		printf("No files currently on the disk.\n");
+		return 0;
+	}
+	for (i=0; i<sizeof(rt); i++){
+		if (rt[i].deleted != 0){ /* make sure file not deleted */
+			printf("%s\n", rt[i].fname);
+		}
+		
+	}
+	return 0;
+}
+
+/* makes the file read only. If a file is RO, all tfs_write() and tfs_deleteFile() functions that try to use it fail. */ 
+int tfs_makeRO(char *name) {
+	fileDescriptor fd = searchRT(name); //check if file already in table
+	if (fd < 0){
+		printf("tfs_makeRO -- file does not exist.\n");
+		return -1;
+	}
+
+	rt[fd].readOnly = 1;
+
+	return 0;
+
+}
+/* makes the file read-write */
+int tfs_makeRW(char *name) {
+	fileDescriptor fd = searchRT(name); //check if file already in table
+	if (fd < 0){
+		printf("tfs_makeRW -- file does not exist.\n");
+		return -1;
+	}
+
+	rt[fd].readOnly = 0;
+
+	return 0;
+}
+
+/*a function that can write one byte to an exact position inside the file. */
+int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data) {
+	int current;
+	int blockNum;
+	int byte;
+	int i = 0;
+
+	if (!rt[FD].opened) {
+		printf("in tfs_writeByte() -- file not opened\n");
+		return -10;
+	}
+	//FileExtent ptr = malloc(BLOCKSIZE);
+	FileExtent *head = malloc(BLOCKSIZE);
+	inode *inodePtr = malloc(BLOCKSIZE);
+
+	current = rt[FD].inodeNum;
+
+	readBlock(mountedDisk, current, inodePtr); /* grab inode */
+	readBlock(mountedDisk, inodePtr->data, head); /* grab first fileextent */
+
+	if (inodePtr->fSize <= offset) {
+		printf("in tfs_writeByte() -- offset greater than filesize\n");
+		return -9;
+	}
+
+	blockNum = floor(offset / DEFAULT_DB_SIZE); 
+	byte = offset % DEFAULT_DB_SIZE;
+
+	while (head->blockNum != blockNum){
+		readBlock(mountedDisk, head->next, head);
+	}
+
+	/*write the byte at the offset ? */
+
+
+	return 0;
+}
+/* returns the file’s creation time or all info (up to you if you want to make multiple functions) */
+int tfs_readFileInfo(fileDescriptor FD) {
+	inode *inodePtr = malloc(BLOCKSIZE);
+
+	if (FD < 0 || FD > sizeof(rt)){
+		printf("in tfs_readFileInfo -- invalid FD\n");
+		return -10;
+	}
+
+	readBlock(mountedDisk, rt[FD].inodeNum, inodePtr); 
+
+	printf("%s",asctime(localtime(&inodePtr->creationTime)));
+
+	if (inodePtr->accessTime != NULL){
+		printf("%s",asctime(localtime(&inodePtr->accessTime)));
+	}
+
+	if (inodePtr->modificationTime != NULL){
+		printf("%s",asctime(localtime(&inodePtr->modificationTime)));
+	}
+
+	return 0;
+}
 
 
 /////////////////////////
@@ -442,6 +572,9 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size) {
 	if (!rt[FD].opened) {
 		printf("in tfs_writeFile() -- file not opened\n");
 		return -9;
+	} else if (rt[FD].readOnly == 1){
+		printf("in tfs_writeFile() -- file is read only, cannot write.\n");
+		return -7
 	}
 
 	// set file size for the corresponding inode
@@ -477,6 +610,11 @@ int tfs_deleteFile(fileDescriptor FD) {
 	inode *inodePtr = malloc(BLOCKSIZE);
 	
 	ResourceTableEntry entry = rt[FD];
+
+	if (rt[FD].readOnly == 1){
+		printf("in tfs_writeFile() -- file is read only, cannot write.\n");
+		return -7
+	}
 
 	current = rt[FD].inodeNum;
 	readBlock(mountedDisk, current, inodePtr); /* grab inode */
@@ -606,6 +744,7 @@ int tfs_seek(fileDescriptor FD, int offset) {
 }
 
 int main() {
+	tfs_rename("12345678", 5);
 	// TESTING MKFS
 	printf("----- TESTING tfs_mkfs() -----");
 	char *disk1 = "test.txt"; 
