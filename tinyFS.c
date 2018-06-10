@@ -29,6 +29,8 @@ int createRTEntry(char *fname, uint8_t inodeNum) { // incomplete, also no way of
 	res = rt[currRTSize].fd;
 	strcpy(rt[currRTSize].fname, fname);
 	rt[currRTSize].opened = 0; /*not yet opened */
+	rt[currRTSize].deleted = 0;
+	rt[currRTSize].readOnly = 0;
 	rt[currRTSize].inodeNum = inodeNum; 
 	rt[currRTSize].blockOffset = 0;
 	rt[currRTSize].byteOffset = 0;
@@ -209,7 +211,7 @@ int printAllFB(int flag) {
 		return error;
 	}
 
-	if (flag = 1) { // print everything about fbs
+	if (flag == 1) { // print everything about fbs
 		while (ptr->nextBlockNum < sb->numFreeBlocks) {
 			printFB(ptr);
 			error = readBlock(mountedDisk, ptr->nextBlockNum, ptr);
@@ -219,13 +221,14 @@ int printAllFB(int flag) {
 		}
 	}
 	else {
-		while (ptr->nextBlockNum < sb->numFreeBlocks) {
+		while (ptr->nextBlockNum != 0) {
 			printf("%d ", ptr->nextBlockNum);
 			error = readBlock(mountedDisk, ptr->nextBlockNum, ptr);
 			if (error <0){
 				return error;
 			}
 		}
+		printf("\n");
 	}
 	
 	free(ptr);
@@ -354,14 +357,13 @@ int writeToDB(FileExtent *db, char *buffer, int *size, int pos) {
 	if (*size > DEFAULT_DB_SIZE) {
 		memcpy(db->data, &buffer[writeAt], DEFAULT_DB_SIZE);
 		*size -= DEFAULT_DB_SIZE;
-		printf("size is: %d\n",*size);
 		printf("-Successfully wrote to DB: %d bytes\n", DEFAULT_DB_SIZE);
 		return 0;
 	}	
 	else {
 		memcpy(db->data, &buffer[writeAt], *size);
-		*size = 0;
 		printf("-Successfully wrote to DB: %d bytes\n", *size);
+		*size = 0;
 		return 0;
 	}
 }
@@ -477,7 +479,7 @@ int tfs_readdir() {
 		return NO_FILES_ON_DISK;
 	}
 	for (i=0; i<sizeof(rt); i++){
-		if (rt[i].deleted != 0){ /* make sure file not deleted */
+		if (rt[i].deleted != 1){ /* make sure file not deleted */
 			printf("%s\n", rt[i].fname);
 		}
 		
@@ -715,6 +717,7 @@ fileDescriptor tfs_openFile(char *name) {
 
 /* Closes the file, de-allocates all system/disk resources, and removes table entry */
 int tfs_closeFile(fileDescriptor FD) {
+	printf("\n] CLOSING FILE DESCRIPTOR %d\n", FD);
 	if (sizeof(rt) <= FD) {
 		printf("in tfs-closeFile() -- invalid FD\n");
 		return INVALID_FD; 
@@ -729,10 +732,14 @@ Sets the file pointer to 0 (the start of file) when done.
 Returns success/error codes. */
 int tfs_writeFile(fileDescriptor FD, char *buffer, int size) {
 	// check if FD is open or not
-	printf("\n] WRITING FILE\n");
+	printf("\n] WRITING TO FILE DESCRIPTOR %d\n", FD);
 	if (rt[FD].readOnly == 1){
 		printf("in tfs_writeFile() -- file is read only, cannot write.\n");
 		return READ_ONLY;
+	}
+	if (rt[FD].deleted) {
+		printf("in tfs_writeFile() -- file does not exist\n");
+		return FILE_NOT_EXIST;
 	}
 	if (!rt[FD].opened) {
 		printf("in tfs_writeFile() -- file not opened\n");
@@ -785,95 +792,38 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size) {
 
 /* deletes a file and marks its blocks as free on disk. */
 int tfs_deleteFile(fileDescriptor FD) {
+	printf("\n] DELETING FILE DESCRIPTOR %d\n", FD);
 	int error;
-	int current;
-	freeblock *newFB;
-	FileExtent *head = malloc(BLOCKSIZE);
-	FileExtent *previous = malloc(BLOCKSIZE);
-	inode *inodePtr = malloc(BLOCKSIZE);
-	
-	ResourceTableEntry entry = rt[FD];
-
-	if (rt[FD].readOnly == 1){
-		printf("in tfs_deleteFile() -- file is read only, cannot delete.\n");
-		return READ_ONLY;
-	}
-
-	current = rt[FD].inodeNum;
-	error = readBlock(mountedDisk, current, inodePtr); /* grab inode */
+	inode *iptr = malloc(BLOCKSIZE);
+	error = readBlock(mountedDisk, rt[FD].inodeNum, iptr);
 	if (error <0){
 		return error;
 	}
-	error = readBlock(mountedDisk, inodePtr->data, previous); /* grab first fileextent */
-	if (error <0){
-		return error;
+	if (iptr->data != 0) {
+		//printf("first data block at: %d\n", iptr->data);
+		FileExtent *fp = malloc(BLOCKSIZE);
+		error = readBlock(mountedDisk, iptr->data, fp);
+		if (error <0){
+			return error;
+		}
+
+		while (fp->next != 0) {
+			//printf("current fp block num: %d\n",fp->blockNum);
+			int blockToFree = fp->blockNum;
+			error = readBlock(mountedDisk, fp->next, fp);
+			if (error <0){
+				return error;
+			}
+			deallocateDB(blockToFree);
+		}
+		deallocateDB(fp->blockNum);
+		free(fp);
 	}
-	error = readBlock(mountedDisk, previous->next, head);
-	if (error <0){
-		return error;
-	}
-
-	// while (head->next != 0){ /*free linked list of blocks) */
-
-	// 	newFB = calloc(previous->blockNum, BLOCKSIZE);
-	// 	newFB->blockType = FREE_BLOCK;
-	// 	newFB->magicN = MAGIC_N;
-	// 	newFB->blockNum = previous->blockNum;
-	// 	newFB->nextBlockNum = head->blockNum;
-	// 	error = writeBlock(mountedDisk, previous->blockNum, newFB);
-	// 	if (error <0){
-	// 		return error;
-	// 	}
-	// 	sb->numFreeBlocks +=1;
-	// 	writeBlock(mountedDisk, 0, sb);
-	// 	free(previous);
-	// 	error = readBlock(mountedDisk, head->next, head);
-	// 	if (error <0){
-	// 		return error;
-	// 	}
-	// }
-
-	
-	// newFB = calloc(previous->blockNum, BLOCKSIZE);
-	// newFB->blockType = FREE_BLOCK;
-	// newFB->magicN = MAGIC_N;
-	// newFB->blockNum = previous->blockNum;
-	// newFB->nextBlockNum = head->blockNum;
-	// error = writeBlock(mountedDisk, previous->blockNum, newFB);
-	// if (error <0){
-	// 	return error;
-	// }
-	// sb->numFreeBlocks +=1;
-	// writeBlock(mountedDisk, 0, sb);
-	// free(previous);
-
-	// newFB = calloc(head->blockNum, BLOCKSIZE);
-	// newFB->blockType = FREE_BLOCK;
-	// newFB->magicN = MAGIC_N;
-	// newFB->blockNum = head->blockNum;
-	// newFB->nextBlockNum = 0;
-	// error = writeBlock(mountedDisk, head->blockNum, newFB);
-	// if (error <0){
-	// 	return error;
-	// }
-	// numFreeBlocks +=1;
-	// free(head);
-
-	// /*free inode & override with free block */
-	// newFB = calloc(inodePtr->blockNum, BLOCKSIZE);
-	// newFB->blockType = FREE_BLOCK;
-	// newFB->magicN = MAGIC_N;
-	// newFB->blockNum = inodePtr->blockNum;
-	// newFB->nextBlockNum = 0;
-	// error = writeBlock(mountedDisk, inodePtr->blockNum, newFB);
-	// if (error <0){
-	// 	return error;
-	// }
-	// numFreeBlocks +=1;
-	// free (inodePtr);
+	deallocateDB(iptr->blockNum);
 
 	rt[FD].opened = 0;
-	rt[FD].deleted = 0;
+	rt[FD].deleted = 1;
+	free(iptr);
 
 	return 0;
 }
@@ -882,6 +832,7 @@ int tfs_deleteFile(fileDescriptor FD) {
 using the current file pointer location and incrementing it by one upon success. 
 If the file pointer is already at the end of the file then tfs_readByte() should return an error and not increment the file pointer. */
 int tfs_readByte(fileDescriptor FD, char *buffer) {
+	printf("\n] READING BYTE FROM %s\n", rt[FD].fname);
 	int error;
 	inode *ptr = malloc(BLOCKSIZE);
 	int inodeBNum = rt[FD].inodeNum;
@@ -900,13 +851,10 @@ int tfs_readByte(fileDescriptor FD, char *buffer) {
 
 	char *fileBuf = malloc(BLOCKSIZE);
 
-	// find the correct logical block num
-	// this can probably be decomposed into another function
-	// actually, a lot of this shit could lol
 	int i = 0;
 	FileExtent *fp = malloc(BLOCKSIZE);
 	error = readBlock(mountedDisk, ptr->data, fp);
-	if (error <0){
+	if (error < 0){
 		return error;
 	}
 	while (i < blockOffset) {
@@ -921,16 +869,18 @@ int tfs_readByte(fileDescriptor FD, char *buffer) {
 		return error;
 	}
 	//strcpy(fileBuf[byteOffset], buffer);
-	printf(" -------- readByte string: %s\n", fileBuf);
 	printf(" -------- readByte: %x\n", fileBuf[byteOffset]);
-	printf(" blockOFfset: %d\n", blockOffset);
+	printf(" -------- readByte: %c\n", (char)fileBuf[byteOffset]);
 	rt[FD].byteOffset += 1;
+	printf("-Byte offset from top of block (includes header): %d\n", rt[FD].byteOffset);
 	return 0;
 }
 
 /* change the file pointer location to offset (absolute). Returns success/error codes.*/
 int tfs_seek(fileDescriptor FD, int offset) { 
-	printf("] in tfs_seek():\n");
+	printf("\n] SEEKING %d BYTES INTO FD %d\n", offset, FD);
+	rt[FD].blockOffset = 0;
+	rt[FD].byteOffset = DATA_HEADER_OFFSET;
 	int current;
 	int error;
 	int blockNum;
@@ -941,7 +891,6 @@ int tfs_seek(fileDescriptor FD, int offset) {
 		printf("in tfs_seek() -- file not opened\n");
 		return FILE_NOT_OPEN;
 	}
-	//FileExtent ptr = malloc(BLOCKSIZE);
 	FileExtent *head = malloc(BLOCKSIZE);
 	inode *inodePtr = malloc(BLOCKSIZE);
 
@@ -964,7 +913,9 @@ int tfs_seek(fileDescriptor FD, int offset) {
 	byte = offset % DEFAULT_DB_SIZE;
 
 	rt[FD].blockOffset = blockNum;
-	rt[FD].byteOffset = byte;
+	printf("-Block offset: %d\n", rt[FD].blockOffset);
+	rt[FD].byteOffset = byte + DATA_HEADER_OFFSET;
+	printf("-Byte offset: %d\n", rt[FD].byteOffset);
 
 	return 0;
 }
@@ -1078,9 +1029,11 @@ int main() {
 	fd4 = tfs_openFile(fname4);
 	printRT();
 
+	// TESTING WRITEFILE
 	printf("\n----- TESTING tfs_writeFile() -----");
 	char writeBuf[512];
-	printf("\n-Size of writeBuf: %lu\n", sizeof(writeBuf));
+	printf("\n] WRITING TO %s\n", fname3);
+	printf("\n-Size of write buffer: %lu\n", sizeof(writeBuf));
 	memset(writeBuf, 1, 512);
 	res = tfs_writeFile(fd3, writeBuf, 512);
 	printIN(fd3);
@@ -1088,6 +1041,36 @@ int main() {
 	memset(writeBuf, 2, sizeof(writeBuf));
 	res = tfs_writeFile(fd3, writeBuf, DEFAULT_DB_SIZE);
 	printIN(fd3);
+
+	printAllFB(0);
+
+	char *writeBuf2 = "abbbbbbdb";
+	printf("\n] WRITING TO %s\n", fname4);
+	printf("\n-Size of write buffer: %lu\n", sizeof(writeBuf2));
+	res = tfs_writeFile(fd4, writeBuf2, DEFAULT_DB_SIZE);
+	printIN(fd4);
+	printAllFB(0);
+
+	printf("\n----- TESTING tfs_readByte() & tfs_seek() -----");
+	char *emptyBuf;
+	printf("\n] Testing readByte\n");
+	printf("\n-Should read first byte (in hex) of string: %s\n", writeBuf2);
+	tfs_readByte(fd4, emptyBuf);
+	printf("\n-Should read second byte (in hex) of string: %s\n", writeBuf2);
+	tfs_readByte(fd4, emptyBuf);
+
+	printf("\n] Testing seek\n");
+	printf("-Should seek to byte 6, expecting d\n");
+	tfs_seek(fd4, 7);
+	tfs_readByte(fd4, emptyBuf);
+
+	printf("\n----- TESTING tfs_closeFile() -----");
+	tfs_closeFile(fd3);
+	tfs_writeFile(fd3, writeBuf2, DEFAULT_DB_SIZE);
+
+	printf("\n----- TESTING tfs_deleteFile() -----");
+	tfs_deleteFile(fd3);
+	tfs_writeFile(fd3, writeBuf2, DEFAULT_DB_SIZE);
 
 	return 0;
 }
