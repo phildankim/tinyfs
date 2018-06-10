@@ -16,9 +16,13 @@ ResourceTableEntry rt[DEFAULT_RT_SIZE];
 
 int mountedDisk = UNMOUNTED; // this is for mount/unmount, keeps track of which disk to operate on
 
+/**********************************************************************************/
+
 /////////////////////////
 /// STRUCT OPERATIONS ///
 /////////////////////////
+
+/**********************************************************************************/
 
 int createRTEntry(char *fname, uint8_t inodeNum) { // incomplete, also no way of knowing if we have enough space in RT for more
 	printf("\n] CREATING NEW RT ENTRY\n");
@@ -326,10 +330,14 @@ int insertDB(inode *inodePtr, FileExtent *new) {
 	}
 	return 0;
 }
+/**********************************************************************************/
 
 /////////////////////////
 /// PART 3 OPERATIONS ///
 /////////////////////////
+
+/**********************************************************************************/
+
 /* renames a file.  New name should be passed in. */
 int tfs_rename(char *filename, int FD) {
 	inode *inodePtr = malloc(BLOCKSIZE);
@@ -453,10 +461,13 @@ int tfs_readFileInfo(fileDescriptor FD) {
 	return 0;
 }
 
+/**********************************************************************************/
 
 /////////////////////////
 /// tinyFS OPERATIONS ///
 /////////////////////////
+
+/**********************************************************************************/
 
 int tfs_mkfs(char *filename, int nBytes) {
 	printf("\n] CREATING NEW FILE SYSTEM ON DISK NAME %s\n", filename);
