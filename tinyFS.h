@@ -26,9 +26,9 @@ typedef int fileDescriptor;
 #define FNAME_LIMIT 8
 #define MAGIC_N 0x45
 
-void initSB();
-void initFBList(int nBytes);
-void insertIN(uint8_t new);
+int initSB();
+int initFBList(int nBytes);
+int insertIN(uint8_t new);
 int errorCheck(int errno);
 int tfs_mkfs(char *filename, int nBytes);
 int tfs_mount(char *filename);
@@ -62,7 +62,7 @@ typedef struct inode {
 	char fname[9];
 	uint8_t data;
 	uint8_t next; // linked list "pointer"
-	char emptyOffset[BLOCKSIZE - 17];
+	char emptyOffset[BLOCKSIZE - 38];
 	time_t creationTime;
 	time_t accessTime;
 	time_t modificationTime;
