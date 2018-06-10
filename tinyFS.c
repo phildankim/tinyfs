@@ -292,32 +292,21 @@ void printIN(fileDescriptor fd) {
 	free(ptr);
 }
 
-int createDB(int inodeNum, int size, char *buffer, int pos) {
-	int error;
+int createDB(int inodeNum, int *size, char *buffer, int pos) {
 	printf("\n] CREATING NEW DATA BLOCK\n");
+	int error;
 
 	inode *ptr;
 	ptr = malloc(BLOCKSIZE);
 	error = readBlock(mountedDisk, inodeNum, ptr);
-	if (error < 0){
+	if (error <0){
 		return error;
 	}
-	int nextFB;
-	if (ptr->data == 0) { // no data blocks initiated
-		// allocate next free block and update SB
-		nextFB = sb->nextFB;
-		error = updateSB(nextFB);
-		if (error < 0){
-			return error;
-		}
-	}
-	else {
-		// FileExtent *fp = readBlock(mountedDisk, ptr->data, fp);
-		// while (ptr->data != 0) {
-		// 	readBlock(mountedDisk, fp->next, ptr);
-		// }
-		// nextFB = fp->next;
-		nextFB = ptr->data;
+
+	int nextFB = sb->nextFB;
+	error = updateSB(nextFB);
+	if (error <0){
+		return error;
 	}
 
 	// create and init new data block
@@ -328,20 +317,15 @@ int createDB(int inodeNum, int size, char *buffer, int pos) {
 	new->next = 0;
 
 	// guaranteed to always write to db upon creation
-	writeToDB(new, buffer, &size, pos);
+	writeToDB(new, buffer, size, pos);
+	printf("-Size of buffer after writing: %d\n", *size);
 
 	// write new data block to disk
 	error = writeBlock(mountedDisk, new->blockNum, new);
-	if (error < 0){
+	if (error <0){
 		return error;
 	}
-
-	error = insertDB(ptr, new);
-
-	if (error < 0){
-		return error;
-	}
-
+	insertDB(ptr, new);
 	free(new);
 	return 0;
 }
@@ -353,6 +337,7 @@ int writeToDB(FileExtent *db, char *buffer, int *size, int pos) {
 	if (*size > DEFAULT_DB_SIZE) {
 		memcpy(db->data, &buffer[writeAt], DEFAULT_DB_SIZE);
 		*size -= DEFAULT_DB_SIZE;
+		printf("size is: %d\n",*size);
 		printf("-Successfully wrote to DB: %d bytes\n", DEFAULT_DB_SIZE);
 		return 0;
 	}	
@@ -365,14 +350,13 @@ int writeToDB(FileExtent *db, char *buffer, int *size, int pos) {
 }
 
 int insertDB(inode *inodePtr, FileExtent *new) {
-	int error;
 	printf("\n] INSERTING DATA BLOCK\n");
-
+	int error;
 	// if db hasn't been init
 	if (inodePtr->data == 0) {
 		inodePtr->data = new->blockNum;
 		error = writeBlock(mountedDisk, inodePtr->blockNum, inodePtr);
-		if (error < 0){
+		if (error <0){
 			return error;
 		}
 		return 0;
@@ -380,13 +364,13 @@ int insertDB(inode *inodePtr, FileExtent *new) {
 	else {
 		FileExtent *dbPtr = malloc(BLOCKSIZE);
 		error = readBlock(mountedDisk, inodePtr->data, dbPtr);
-		if (error < 0){
+		if (error <0){
 			return error;
 		}
 
 		while (dbPtr->next != 0) {
 			error = readBlock(mountedDisk, dbPtr->next, dbPtr);
-			if (error < 0){
+			if (error <0){
 				return error;
 			}
 		}
@@ -397,63 +381,38 @@ int insertDB(inode *inodePtr, FileExtent *new) {
 
 			// write new DB
 			error = writeBlock(mountedDisk, dbPtr->next, new);
-			if (error < 0){
+			if (error <0){
 				return error;
 			}
 			// update previous DB
 			error = writeBlock(mountedDisk, dbPtr->blockNum, dbPtr);
-			if (error < 0){
+			if (error <0){
 				return error;
 			}
 			free(dbPtr);
 			return 0;
-		} else {
-			printf("-insertDB -- what the fuck?\n");
-			free(dbPtr);
-			return -12;
 		}
 		
 	}
 	return 0;
 }
 
-void deallocateDB(int inodeNum) {
+int deallocateDB(int newBlock) {
 	int error;
-	printf("\n] DEALLOCATING DATABLOCKS\n");
-	inode *ptr = malloc(BLOCKSIZE);
-
-	error = readBlock(mountedDisk, inodeNum, ptr);
-	if (error < 0){
-			return error;
-	}
-	FileExtent *fp = malloc(BLOCKSIZE);
-	error = readBlock(mountedDisk, ptr->data, fp);
-	if (error < 0){
+	printf("\n] DEALLOCATING DATABLOCK AT %d\n", newBlock);
+	freeblock *newFB = calloc(BLOCKSIZE, sizeof(uint8_t));
+	newFB->blockType = FREE_BLOCK;
+	newFB->magicN = MAGIC_N;
+	newFB->blockNum = newBlock;
+	newFB->nextBlockNum = 0;
+	insertFB(newFB->blockNum);
+	error = writeBlock(mountedDisk, newFB->blockNum, newFB);
+	if (error <0){
 		return error;
 	}
-	free(ptr);
-
-	while (fp->next != 0) {
-		freeblock *newFB = calloc(BLOCKSIZE, sizeof(uint8_t));
-		newFB->blockType = FREE_BLOCK;
-		newFB->magicN = MAGIC_N;
-		newFB->blockNum = fp->blockNum;
-		newFB->nextBlockNum = 0;
-		error = insertFB(newFB->blockNum);
-		if (error < 0){
-			return error;
-		}
-		error = writeBlock(mountedDisk, fp->blockNum, newFB);
-		if (error < 0){
-			return error;
-		}
-		error = readBlock(mountedDisk, fp->next, fp);
-		if (error < 0){
-			return error;
-		}
-	}
-	free(fp);
 }
+
+
 
 /**********************************************************************************/
 
