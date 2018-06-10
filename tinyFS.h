@@ -10,9 +10,9 @@ This is a default size. You must be able to support different possible values */
 
 /* this is arbitray, we currently have no way of knowing if 
 these numbers will be enough (or too much) */
-#define DEFAULT_OT_SIZE 10 
 #define DEFAULT_RT_SIZE 15    
 #define DATA_HEADER_OFFSET 4
+#define DEFAULT_DB_SIZE 252
 
 /* use this name for a default disk file name */
 #define DEFAULT_DISK_NAME “tinyFSDisk” 	
@@ -23,7 +23,6 @@ typedef int fileDescriptor;
 #define FILE_EXTENT 3
 #define FREE_BLOCK 4
 #define UNMOUNTED -1
-#define UNINIT -1
 #define FNAME_LIMIT 8
 #define MAGIC_N 0x45
 
@@ -53,7 +52,7 @@ typedef struct FileExtent {
 	uint8_t magicN;
 	uint8_t blockNum;
 	uint8_t next;
-	char emptyOffset[BLOCKSIZE - 4];
+	char data[DEFAULT_DB_SIZE];
 } FileExtent;
 
 typedef struct inode {
@@ -61,10 +60,9 @@ typedef struct inode {
 	uint8_t magicN;
 	uint8_t blockNum;
 	char fname[9];
-	uint8_t fSize;
 	uint8_t data;
 	uint8_t next; // linked list "pointer"
-	char emptyOffset[BLOCKSIZE - 15];
+	char emptyOffset[BLOCKSIZE - 17];
 	time_t creationTime;
 	time_t accessTime;
 	time_t modificationTime;
@@ -75,7 +73,9 @@ typedef struct superblock {
 	uint8_t magicN;
 	uint8_t nextFB;
 	uint8_t rootNode;
-	char emptyOffset[BLOCKSIZE - 4];
+	uint8_t numFreeBlocks;
+	uint8_t rtSize;
+	char emptyOffset[BLOCKSIZE - 6];
 } superblock;
 
 typedef struct freeblock {
@@ -92,12 +92,8 @@ typedef struct ResourceTableEntry { /*index = fd*/
 	int inodeNum;
 	int blockOffset;
 	int byteOffset;
+	int fsize;
 	int opened; /* 0 if unopened, 1 if opened */
 	int deleted; /*0 if deleted, 1 if present */
 	int readOnly; /*0 if not read only, 1 if read only */
 } ResourceTableEntry;
-
-/*typedef struct OpenFileTableEntry {
-	fileDescriptor fd;
-	char fname[9];
-} OpenFileTableEntry;*/

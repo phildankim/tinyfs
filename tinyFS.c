@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <time.h>
 
 int createDB(int inodeNum, int size, char *buffer, int pos);
 int insertDB(struct inode *inodePtr, FileExtent *new);
@@ -12,16 +11,13 @@ int writeToDB(FileExtent *db, char *buffer, int *size, int pos);
 
 superblock *sb = NULL;
 ResourceTableEntry rt[DEFAULT_RT_SIZE];
-/*OpenFileTable ot[DEFAULT_OT_SIZE];*/
 
 int mountedDisk = UNMOUNTED; // this is for mount/unmount, keeps track of which disk to operate on
 
 /**********************************************************************************/
-
 /////////////////////////
 /// STRUCT OPERATIONS ///
 /////////////////////////
-
 /**********************************************************************************/
 
 int createRTEntry(char *fname, uint8_t inodeNum) { // incomplete, also no way of knowing if we have enough space in RT for more
@@ -32,11 +28,9 @@ int createRTEntry(char *fname, uint8_t inodeNum) { // incomplete, also no way of
 	res = rt[currRTSize].fd;
 	strcpy(rt[currRTSize].fname, fname);
 	rt[currRTSize].opened = 0; /*not yet opened */
-	rt[currRTSize].deleted = 1; /*not deleted */
 	rt[currRTSize].inodeNum = inodeNum; 
 	rt[currRTSize].blockOffset = 0;
 	rt[currRTSize].byteOffset = 0;
-	rt[currRTSize].readOnly = 0;
 	sb->rtSize += 1;
 	writeBlock(mountedDisk, 0, sb);
 
@@ -136,6 +130,13 @@ void updateSB(int bNum) {
 	free(ptr);
 }
 
+void printSB() {
+	printf("\n] PRINTING SUPER BLOCK\n");
+	printf("-Block type: %d\n", sb->blockType);
+	printf("-Next free block: %d\n", sb->nextFB);
+	printf("-Root inode: %d\n", sb->rootNode);
+}
+
 void initFBList(int nBytes) {
 	printf("\n] INITIALIZING FREE BLOCK LIST\n");
 	int bNum = nBytes / BLOCKSIZE;
@@ -150,18 +151,16 @@ void initFBList(int nBytes) {
 		}
 }
 
-void printSB() {
-	printf("\n] PRINTING SUPER BLOCK\n");
-	printf("-Block type: %d\n", sb->blockType);
-	printf("-Next free block: %d\n", sb->nextFB);
-	printf("-Root inode: %d\n", sb->rootNode);
-}
+void insertFB(int blockNum) {
+	freeblock *fp = malloc(BLOCKSIZE);
+	readBlock(mountedDisk, sb->nextFB, fp);
 
-void printFB(freeblock *fb) {
-	printf("\n] PRINTING FREE BLOCK\n");
-	printf("-Block type:  %d\n", fb->blockType);
-	printf("-Block num: %d\n", fb->blockNum);
-	printf("-Next block num: %d\n\n", fb->nextBlockNum);
+	while (fp->nextBlockNum != 0) {
+		readBlock(mountedDisk, fp->nextBlockNum, fp);
+	}
+
+	fp->nextBlockNum = blockNum;
+	writeBlock(mountedDisk, fp->blockNum, fp);
 }
 
 void printAllFB() {
@@ -175,13 +174,19 @@ void printAllFB() {
 	free(ptr);
 }
 
+void printFB(freeblock *fb) {
+	printf("\n] PRINTING FREE BLOCK\n");
+	printf("-Block type:  %d\n", fb->blockType);
+	printf("-Block num: %d\n", fb->blockNum);
+	printf("-Next block num: %d\n\n", fb->nextBlockNum);
+}
+
 int createIN(char *fname) { // returns inode blocknum, also incomplete
 	printf("\n] CREATING NEW INODE FOR FILE %s\n", fname);
 	inode *new = malloc(BLOCKSIZE);
 	new->blockType = INODE;
 	new->magicN = MAGIC_N;
 	strcpy(new->fname, fname);
-	new->fSize = 0;
 	new->data = 0; // FileExtent has not been created yet at this point
 	new->next = 0; 
 	new->creationTime = time(NULL);
@@ -237,7 +242,6 @@ void printIN(fileDescriptor fd) {
 	printf("\n] PRINTING INODE FOR %s:\n", ptr->fname);
 	printf("-Block num: %d\n", ptr->blockNum);
 	printf("-File name: %s\n", ptr->fname);
-	printf("-File size: %d\n", ptr->fSize);
 	printf("-Block num of first data block: %d\n", ptr->data);
 	printf("-Block num of next inode: %d\n", ptr->next);
 
@@ -247,9 +251,24 @@ void printIN(fileDescriptor fd) {
 int createDB(int inodeNum, int size, char *buffer, int pos) {
 	printf("\n] CREATING NEW DATA BLOCK\n");
 
-	// allocate next free block and update SB
-	int nextFB = sb->nextFB;
-	updateSB(nextFB);
+	inode *ptr;
+	ptr = malloc(BLOCKSIZE);
+	readBlock(mountedDisk, inodeNum, ptr);
+
+	int nextFB;
+	if (ptr->data == 0) { // no data blocks initiated
+		// allocate next free block and update SB
+		nextFB = sb->nextFB;
+		updateSB(nextFB);
+	}
+	else {
+		// FileExtent *fp = readBlock(mountedDisk, ptr->data, fp);
+		// while (ptr->data != 0) {
+		// 	readBlock(mountedDisk, fp->next, ptr);
+		// }
+		// nextFB = fp->next;
+		nextFB = ptr->data;
+	}
 
 	// create and init new data block
 	FileExtent *new = malloc(BLOCKSIZE);
@@ -260,10 +279,6 @@ int createDB(int inodeNum, int size, char *buffer, int pos) {
 
 	// guaranteed to always write to db upon creation
 	writeToDB(new, buffer, &size, pos);
-
-	inode *ptr;
-	ptr = malloc(BLOCKSIZE);
-	readBlock(mountedDisk, inodeNum, ptr);
 
 	// write new data block to disk
 	writeBlock(mountedDisk, new->blockNum, new);
@@ -280,13 +295,13 @@ int writeToDB(FileExtent *db, char *buffer, int *size, int pos) {
 	if (*size > DEFAULT_DB_SIZE) {
 		memcpy(db->data, &buffer[writeAt], DEFAULT_DB_SIZE);
 		*size -= DEFAULT_DB_SIZE;
-		printf("-Successfully wrote to DB: %s\n", db->data);
+		printf("-Successfully wrote to DB: %d bytes\n", DEFAULT_DB_SIZE);
 		return 0;
 	}	
 	else {
 		memcpy(db->data, &buffer[writeAt], *size);
 		*size = 0;
-		printf("-Successfully wrote to DB: %s\n", db->data);
+		printf("-Successfully wrote to DB: %d bytes\n", *size);
 		return 0;
 	}
 }
@@ -329,6 +344,28 @@ int insertDB(inode *inodePtr, FileExtent *new) {
 		
 	}
 	return 0;
+}
+
+void deallocateDB(int inodeNum) {
+	printf("\n] DEALLOCATING DATABLOCKS\n");
+	inode *ptr = malloc(BLOCKSIZE);
+	readBlock(mountedDisk, inodeNum, ptr);
+
+	FileExtent *fp = malloc(BLOCKSIZE);
+	readBlock(mountedDisk, ptr->data, fp);
+	free(ptr);
+
+	while (fp->next != 0) {
+		freeblock *newFB = calloc(BLOCKSIZE, sizeof(uint8_t));
+		newFB->blockType = FREE_BLOCK;
+		newFB->magicN = MAGIC_N;
+		newFB->blockNum = fp->blockNum;
+		newFB->nextBlockNum = 0;
+		insertFB(newFB->blockNum);
+		writeBlock(mountedDisk, fp->blockNum, newFB);
+		readBlock(mountedDisk, fp->next, fp);
+	}
+	free(fp);
 }
 
 /**********************************************************************************/
@@ -461,13 +498,10 @@ int tfs_readFileInfo(fileDescriptor FD) {
 
 	return 0;
 }
-
 /**********************************************************************************/
-
 /////////////////////////
 /// tinyFS OPERATIONS ///
 /////////////////////////
-
 /**********************************************************************************/
 
 int tfs_mkfs(char *filename, int nBytes) {
@@ -498,7 +532,6 @@ int tfs_mount(char *filename) {
 		printf("-There is already a mounted disk -- exiting\n");
 		return -8;
 	}
-
 	int disk = searchDisk(filename);
 	if (disk < 0) {
 		printf("in tfs_mount() -- disk not found\n");
@@ -527,6 +560,7 @@ int tfs_mount(char *filename) {
 
 	return 0;
 }
+
 int tfs_unmount(void) {
 	printf("\n] UNMOUNTING DISK\n");
 	if (mountedDisk == UNMOUNTED) {
@@ -552,12 +586,14 @@ fileDescriptor tfs_openFile(char *name) {
 	}
 
 	fileDescriptor fd = searchRT(name); //check if file already in table
+
 	if (fd < 0) { // not exists
 		int inodeBlockNum = createIN(name); // create inode
 		fd = createRTEntry(name, inodeBlockNum);
 		rt[fd].opened = 1;
 		return fd;
 	}
+	
 	else { // exists
 		rt[fd].opened = 1;
 		return fd;
@@ -584,19 +620,13 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size) {
 	if (!rt[FD].opened) {
 		printf("in tfs_writeFile() -- file not opened\n");
 		return -9;
-	} else if (rt[FD].readOnly == 1){
-		printf("in tfs_writeFile() -- file is read only, cannot write.\n");
-		return -7
 	}
 
-	// set file size for the corresponding inode
-	inode *inodePtr = malloc(BLOCKSIZE);
-	readBlock(mountedDisk, rt[FD].inodeNum, inodePtr);
-	inodePtr->fSize = size;
-	printf("-inode new fsize: %d\n", inodePtr->fSize);
-	writeBlock(mountedDisk, rt[FD].inodeNum, inodePtr);
+	// set file size for the corresponding RT entry
+	rt[FD].fsize = size;
+	printf("-inode new fsize: %d\n", rt[FD].fsize);
 
-	int numDataBlocks = 0; 
+	int numDataBlocks = 1; 
 	numDataBlocks += floor(size / DEFAULT_DB_SIZE);
 
 	int i;
@@ -694,7 +724,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer) {
 	int byteOffset = rt[FD].byteOffset;
 	int currPos = (blockOffset * BLOCKSIZE) + byteOffset;
 	
-	if (currPos >= ptr->fSize) {
+	if (currPos >= rt[FD].fsize) {
 		printf("in readByte() -- file ptr already at end of file\n");
 		return -9;
 	}
@@ -741,7 +771,7 @@ int tfs_seek(fileDescriptor FD, int offset) {
 	readBlock(mountedDisk, current, inodePtr); /* grab inode */
 	readBlock(mountedDisk, inodePtr->data, head); /* grab first fileextent */
 
-	if (inodePtr->fSize <= offset) {
+	if (rt[FD].fsize <= offset) {
 		printf("in tfs_seek() -- offset greater than filesize\n");
 		return -9;
 	}
@@ -756,7 +786,6 @@ int tfs_seek(fileDescriptor FD, int offset) {
 }
 
 int main() {
-	tfs_rename("12345678", 5);
 	// TESTING MKFS
 	printf("----- TESTING tfs_mkfs() -----");
 	char *disk1 = "test.txt"; 
@@ -813,14 +842,15 @@ int main() {
 	printRT();
 
 	printf("\n----- TESTING tfs_writeFile() -----");
-	char writeBuf[2*DEFAULT_DB_SIZE];
-	memset(writeBuf, 1, sizeof(writeBuf));
-	res = tfs_writeFile(fd3, writeBuf, sizeof(writeBuf));
+	char writeBuf[512];
+	//printf("-Size of writeBuf: %lu\n", DEFAULT_DB_SIZE);
+	memset(writeBuf, 1, 512);
+	res = tfs_writeFile(fd3, writeBuf, 512);
 	printIN(fd3);
 
-	memset(writeBuf, 2, sizeof(writeBuf));
-	res = tfs_writeFile(fd3, writeBuf, DEFAULT_DB_SIZE);
-	printIN(fd3);
+	// memset(writeBuf, 2, sizeof(writeBuf));
+	// res = tfs_writeFile(fd3, writeBuf, DEFAULT_DB_SIZE);
+	// printIN(fd3);
 
 	return 0;
 }
