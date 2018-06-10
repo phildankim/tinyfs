@@ -189,6 +189,9 @@ int createIN(char *fname) { // returns inode blocknum, also incomplete
 	strcpy(new->fname, fname);
 	new->data = 0; // FileExtent has not been created yet at this point
 	new->next = 0; 
+	new->creationTime = time(NULL);
+	new->accessTime = NULL;
+	new->modificationTime = NULL;
 
 	int nextFB;
 	if (sb->rootNode == 0) { // root inode has not yet been initialized
