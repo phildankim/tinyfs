@@ -268,20 +268,8 @@ int createDB(int inodeNum, int *size, char *buffer, int pos) {
 	ptr = malloc(BLOCKSIZE);
 	readBlock(mountedDisk, inodeNum, ptr);
 
-	int nextFB;
-	if (ptr->data == 0) { // no data blocks initiated
-		// allocate next free block and update SB
-		nextFB = sb->nextFB;
-		updateSB(nextFB);
-	}
-	else {
-		// FileExtent *fp = readBlock(mountedDisk, ptr->data, fp);
-		// while (ptr->data != 0) {
-		// 	readBlock(mountedDisk, fp->next, ptr);
-		// }
-		// nextFB = fp->next;
-		nextFB = ptr->data;
-	}
+	int nextFB = sb->nextFB;
+	updateSB(nextFB);
 
 	// create and init new data block
 	FileExtent *new = malloc(BLOCKSIZE);
