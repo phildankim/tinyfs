@@ -516,6 +516,7 @@ int tfs_makeRW(char *name) {
 
 /*a function that can write one byte to an exact position inside the file. */
 int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data) {
+	printf("\n] WRITING BYTE %s TO FD %d\n", data, FD);
 	int current;
 	int error;
 	int blockNum;
@@ -549,12 +550,15 @@ int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data) {
 	blockNum = floor(offset / DEFAULT_DB_SIZE); 
 	byte = offset % DEFAULT_DB_SIZE;
 
-	while (head->blockNum != blockNum){
+	while (head->next != 0){
 		error = readBlock(mountedDisk, head->next, head);
 		if (error <0){
 			return error;
 		}
 	}
+
+	memcpy(head->data[DATA_HEADER_OFFSET + offset], data, 1);
+	printf("-Wrote %s into data block num %d\n", head->data[DATA_HEADER_OFFSET + offset], head->blockNum);
 
 	/*write the byte at the offset ? */
 
