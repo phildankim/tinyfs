@@ -516,7 +516,7 @@ int tfs_makeRW(char *name) {
 
 /*a function that can write one byte to an exact position inside the file. */
 int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data) {
-	printf("\n] WRITING BYTE %s TO FD %d\n", data, FD);
+	printf("\n] WRITING BYTE %x TO FD %d\n", data, FD);
 	int current;
 	int error;
 	int blockNum;
@@ -548,7 +548,9 @@ int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data) {
 	}
 
 	blockNum = floor(offset / DEFAULT_DB_SIZE); 
-	byte = offset % DEFAULT_DB_SIZE;
+	printf("blockNum: %d\n", blockNum);
+	byte = (offset % DEFAULT_DB_SIZE) + DATA_HEADER_OFFSET;
+	printf("byte: %d\n", byte);
 
 	while (head->next != 0){
 		error = readBlock(mountedDisk, head->next, head);
@@ -557,8 +559,9 @@ int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data) {
 		}
 	}
 
-	memcpy(head->data[DATA_HEADER_OFFSET + offset], data, 1);
-	printf("-Wrote %s into data block num %d\n", head->data[DATA_HEADER_OFFSET + offset], head->blockNum);
+	memcpy(&head->data[offset], &data, 1);
+	writeBlock(mountedDisk, head->blockNum, head);
+	printf("-Wrote %x into block num %d at byte %d\n", head->data[offset], head->blockNum, byte);
 
 	/*write the byte at the offset ? */
 
@@ -1066,6 +1069,10 @@ int main() {
 	printf("\n] Testing seek\n");
 	printf("-Should seek to byte 6, expecting d\n");
 	tfs_seek(fd4, 7);
+	tfs_readByte(fd4, emptyBuf);
+
+	printf("\n----- TESTING tfs_writeByte() -----\n");
+	tfs_writeByte(fd4, 7, '1');
 	tfs_readByte(fd4, emptyBuf);
 
 	printf("\n----- TESTING tfs_closeFile() -----");
