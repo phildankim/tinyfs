@@ -48,27 +48,6 @@ typedef int fileDescriptor;
 #define WRITE_FAIL -20
 
 
-int initSB();
-int initFBList(int nBytes);
-int insertIN(uint8_t new);
-int errorCheck(int errno);
-int tfs_mkfs(char *filename, int nBytes);
-int tfs_mount(char *filename);
-int tfs_unmount(void);
-fileDescriptor tfs_openFile(char *name);
-int tfs_closeFile(fileDescriptor FD);
-int tfs_writeFile(fileDescriptor FD, char *buffer, int size);
-int tfs_deleteFile(fileDescriptor FD);
-int tfs_readByte(fileDescriptor FD, char *buffer);
-int tfs_seek(fileDescriptor FD, int offset);
-
-int tfs_rename(char *newfilename, char *oldfilename);  /* part 3 function */
-int tfs_readdir(); /* part 3 function */
-int tfs_makeRO(char *name);
-int tfs_makeRW(char *name);
-int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data);
-int tfs_readFileInfo(fileDescriptor FD);
-
 typedef struct FileExtent {
 	uint8_t blockType;
 	uint8_t magicN;
@@ -119,3 +98,38 @@ typedef struct ResourceTableEntry { /*index = fd*/
 	int deleted; /*0 if deleted, 1 if present */
 	int readOnly; /*0 if not read only, 1 if read only */
 } ResourceTableEntry;
+
+int initSB();
+int initFBList(int nBytes);
+int insertIN(uint8_t new);
+int errorCheck(int errno);
+int tfs_mkfs(char *filename, int nBytes);
+int tfs_mount(char *filename);
+int tfs_unmount(void);
+fileDescriptor tfs_openFile(char *name);
+int tfs_closeFile(fileDescriptor FD);
+int tfs_writeFile(fileDescriptor FD, char *buffer, int size);
+int tfs_deleteFile(fileDescriptor FD);
+int tfs_readByte(fileDescriptor FD, char *buffer);
+int tfs_seek(fileDescriptor FD, int offset);
+
+int createDB(int inodeNum, int *size, char *buffer, int pos);
+int insertDB(inode *inodePtr, FileExtent *new);
+int writeToDB(FileExtent *db, char *buffer, int *size, int pos);
+
+void printSB();
+void printRT();
+void printFB(freeblock *fb);
+int printAllFB(int flag);
+int printIN(fileDescriptor fd);
+
+
+
+int tfs_rename(char *newfilename, char *oldfilename);  /* part 3 function */
+int tfs_readdir(); /* part 3 function */
+int tfs_makeRO(char *name);
+int tfs_makeRW(char *name);
+int tfs_writeByte(fileDescriptor FD, int offset, unsigned char data);
+int tfs_readFileInfo(fileDescriptor FD);
+
+void errorHandling(int error);
