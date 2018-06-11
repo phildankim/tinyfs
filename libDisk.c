@@ -21,7 +21,7 @@ int openDisk(char *filename, int nBytes) {
 	int fd;
 
 	if (nBytes % BLOCKSIZE != 0) {
-		return -2; // invalid nBytes
+		return INVALID_NBYTES; // invalid nBytes
 	}
 
 	int disk = searchDisk(filename);
@@ -31,11 +31,11 @@ int openDisk(char *filename, int nBytes) {
 
 	if (nBytes > 0) {
 		if ((fd = open(filename, O_CREAT | O_RDWR)) == -1) {
-			return -1; // invalid file
+			return INVALID_FILE; // invalid file
 		}
 		if (access(filename, F_OK) != -1) { // file exists
 			if (ftruncate(fd, nBytes) == -1) {
-				return -1; // invalid file
+				return INVALID_FILE; // invalid file
 			}
 			int i;
 			for (i = 0; i < nBytes; i++) {
@@ -46,7 +46,7 @@ int openDisk(char *filename, int nBytes) {
 
 	if (nBytes == 0) {
 		if ((fd = open(filename, O_RDONLY)) == -1) {
-			return -1; // invalid file
+			return INVALID_FILE; // invalid file
 		}
 	}
 
@@ -56,14 +56,14 @@ int openDisk(char *filename, int nBytes) {
 int readBlock(int disk, int bNum, void *block) {
 	int fd = diskArray[disk].fd;
 	if (fd < 2) { // stdin, stdout, stderr
-		return -2; // illegal fds
+		return INVALID_FD; // illegal fds
 	}
 
 	if (lseek(fd, bNum*BLOCKSIZE, SEEK_SET) == -1) {
-		return -1;
+		return LSEEK_FAIL;
 	}
 	if (read(fd, block, BLOCKSIZE) == -1) {
-		return -1;
+		return READ_FAIL;
 	}
 
 	return 0;
@@ -73,17 +73,17 @@ int writeBlock(int disk, int bNum, void *block){
 	int fd = diskArray[disk].fd;
 	//printf("in writeBlock -- fd for disk %d is %d\n", disk, fd);
 	if (fd < 2) { // stdin, stdout, stderr
-		return -2; // illegal fds
+		return INVALID_FD; // illegal fds
 	}
 
 	if (lseek(fd, bNum*BLOCKSIZE, SEEK_SET) == -1) {
-		return -1;
+		return LSEEK_FAIL;
 	}
 
 	//int errno;
 	if ((write(fd, block, BLOCKSIZE)) == -1) {
-		printf("in writeBlock -- write failed\nerrno: %d\n", errno);
-		return -1;
+		
+		return WRITE_FAIL;
 	}
 
 	return 0;

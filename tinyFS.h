@@ -42,6 +42,10 @@ typedef int fileDescriptor;
 #define INVALID_READ -14
 #define ERR_MAGICN -15
 #define NOTHING_MOUNTED -16
+#define FILE_NOT_EXIST -17
+#define LSEEK_FAIL -18
+#define READ_FAIL -19
+#define WRITE_FAIL -20
 
 
 int initSB();
@@ -58,7 +62,7 @@ int tfs_deleteFile(fileDescriptor FD);
 int tfs_readByte(fileDescriptor FD, char *buffer);
 int tfs_seek(fileDescriptor FD, int offset);
 
-int tfs_rename(char *filename, int FD);  /* part 3 function */
+int tfs_rename(char *newfilename, char *oldfilename);  /* part 3 function */
 int tfs_readdir(); /* part 3 function */
 int tfs_makeRO(char *name);
 int tfs_makeRW(char *name);

@@ -5,8 +5,31 @@
 #include <stdlib.h>
 #include <math.h>
 
+
 #define BLOCKSIZE 256
 #define DISK_DEFAULT 20
+
+/*error codes */
+#define INVALID_FD -1
+#define INVALID_FNAME -2
+#define ROOT_NOT_INITIALIZED -3
+#define NO_FREE_BLOCKS -4
+#define NO_FILES_ON_DISK -5
+#define FILE_NOT_OPEN -6
+#define INVALID_OFFSET -7
+#define INVALID_FILE -8
+#define INVALID_NBYTES -9
+#define INVALID_DISK -10
+#define INVALID_MOUNT -11
+#define INVALID_UNMOUNT -12
+#define READ_ONLY -13
+#define INVALID_READ -14
+#define ERR_MAGICN -15
+#define NOTHING_MOUNTED -16
+#define FILE_NOT_EXIST -17
+#define LSEEK_FAIL -18
+#define READ_FAIL -19
+#define WRITE_FAIL -20
 
 int getFD(int disk);
 int searchDisk(char *fname);
